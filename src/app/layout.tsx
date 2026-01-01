@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import Link from 'next/link';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'Streakrpro',
@@ -38,7 +39,17 @@ export default function RootLayout({
             <Link href="/about-developer" className="hover:text-foreground transition-colors mx-2">About Developer</Link>
           </div>
         </footer>
+        <Script id="monetag-in-page-push" strategy="afterInteractive">
+          {`
+            (function(s){
+              s.dataset.zone='10404923';
+              s.src='https://nap5k.com/tag.min.js';
+            })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))
+          `}
+        </Script>
       </body>
     </html>
   );
 }
+
+    

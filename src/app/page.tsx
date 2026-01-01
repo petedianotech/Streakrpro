@@ -27,30 +27,9 @@ type Operator = '+' | 'x';
 const TIMER_SECONDS = 10;
 const PERFECT_STREAK_BONUS = 100;
 const COMBO_MULTIPLIER_THRESHOLD = 5;
-const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
 const INITIAL_TIME_POWER_UPS = 3;
 const QUESTIONS_PER_LEVEL = 10;
 const SAVE_STREAK_MINIMUM = 5;
-
-
-// Function to trigger the ad manually and safely
-const triggerOnClickAd = () => {
-    try {
-        if (window.onclick && typeof window.onclick === 'function') {
-            window.onclick();
-        } else {
-            console.log("OnClick ad function not found on window object.");
-        }
-    } catch (e) {
-        console.error("Failed to trigger OnClick ad:", e);
-    }
-};
-
-declare global {
-    interface Window {
-        onclick?: () => void;
-    }
-}
 
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -81,7 +60,6 @@ export default function Home() {
   const [questionStartTime, setQuestionStartTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
-  const [gameOverCount, setGameOverCount] = useState(0);
   const [timePowerUps, setTimePowerUps] = useState(INITIAL_TIME_POWER_UPS);
   const { toast } = useToast();
   const auth = useAuth();
@@ -101,27 +79,6 @@ export default function Home() {
     }
   }, [isUserLoading, user, auth]);
   
-  useEffect(() => {
-    // Load the PropellerAds script once when the component mounts
-    const script = document.createElement('script');
-    script.dataset.zone = '10404875';
-    script.src = 'https://al5sm.com/tag.min.js';
-    script.async = true;
-
-    // We only want to add it once
-    if (!document.querySelector(`script[src="${script.src}"]`)) {
-      document.body.appendChild(script);
-    }
-
-    return () => {
-      // Optional: Cleanup script on component unmount
-      const existingScript = document.querySelector(`script[src="${script.src}"]`);
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
-
 
   const getDifficulty = useCallback(() => {
     const level = Math.max(1, Math.floor(streak / QUESTIONS_PER_LEVEL) + 1);
@@ -196,10 +153,6 @@ export default function Home() {
   }, [streak]);
 
   const handleEndGame = () => {
-    triggerOnClickAd(); // Trigger the ad when the game officially ends.
-    const newGameOverCount = gameOverCount + 1;
-    setGameOverCount(newGameOverCount);
-    localStorage.setItem('gameOverCount', String(newGameOverCount));
     setGameState('game-over');
   };
   
@@ -209,7 +162,6 @@ export default function Home() {
     
     // Load initial values from localStorage.
     setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
-    setGameOverCount(Number(localStorage.getItem('gameOverCount') || '0'));
     
     const today = new Date().toDateString();
     const lastPlayed = localStorage.getItem('lastPlayedDate');
@@ -475,3 +427,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
