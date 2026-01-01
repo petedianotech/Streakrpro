@@ -29,10 +29,12 @@ export default function RootLayout({
         </FirebaseClientProvider>
         <Toaster />
         <footer className="w-full bg-background border-t border-border mt-auto">
-          <div className="max-w-4xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-center items-center text-sm text-muted-foreground">
+          <div className="max-w-4xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-center items-center text-sm text-muted-foreground flex-wrap">
             <Link href="/privacy-policy" className="hover:text-foreground transition-colors mx-2">Privacy Policy</Link>
-            <span className="mx-2">|</span>
+            <span className="mx-2 hidden sm:inline">|</span>
             <Link href="/terms-of-service" className="hover:text-foreground transition-colors mx-2">Terms of Service</Link>
+             <span className="mx-2 hidden sm:inline">|</span>
+            <Link href="/about-developer" className="hover:text-foreground transition-colors mx-2">About Developer</Link>
           </div>
         </footer>
       </body>
