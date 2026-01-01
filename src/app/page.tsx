@@ -6,13 +6,13 @@ import { WelcomeScreen } from '@/components/game/WelcomeScreen';
 import { GameScreen } from '@/components/game/GameScreen';
 import { SaveStreakScreen } from '@/components/game/SaveStreakScreen';
 import { GameOverScreen } from '@/components/game/GameOverScreen';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, getDoc, collection } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { LoadingScreen } from '@/components/game/LoadingScreen';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 
@@ -407,12 +407,7 @@ export default function Home() {
 
   const renderContent = () => {
     if (!isClient || isUserLoading) {
-      return (
-        <div className="w-full max-w-md mx-auto">
-          <Skeleton className="h-[96px] w-full mb-6" />
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      )
+      return <LoadingScreen />;
     }
     switch (gameState) {
       case 'playing':
