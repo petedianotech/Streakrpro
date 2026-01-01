@@ -80,7 +80,7 @@ export default function Home() {
   
 
   const getDifficulty = useCallback(() => {
-    const level = Math.max(1, Math.floor(streak / QUESTIONS_PER_LEVEL) + 1);
+    const level = Math.max(1, Math.floor(streak / 1) + 1);
 
     if (level <= 20) { // Addition levels
         let range;
@@ -242,7 +242,7 @@ export default function Home() {
     setGameState('playing');
   }, [generateQuestion, isClient]);
 
-  const triggerHapticFeedback = (pattern: number | number[] = 100) => {
+  const triggerHapticFeedback = (pattern: number | number[] = 50) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(pattern);
@@ -296,6 +296,7 @@ export default function Home() {
       setScore(newScore);
       generateQuestion();
     } else {
+      triggerHapticFeedback([20, 20, 20]);
       setScoreMultiplier(1);
       if (streak >= SAVE_STREAK_MINIMUM) {
         setGameState('save-streak');

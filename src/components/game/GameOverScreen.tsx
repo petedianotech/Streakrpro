@@ -53,7 +53,7 @@ export function GameOverScreen({
 
 
   const handleShare = async () => {
-    const shareText = `I scored ${finalScore} with a ${finalStreak} streak in Streakrpro! Can you beat me?`;
+    const shareText = `Just crushed it in Streakrpro! ✨ My top score is ${finalScore} with a ${finalStreak} streak. Think you can beat me?`;
     const shareUrl = window.location.href;
 
     if (navigator.share) {
