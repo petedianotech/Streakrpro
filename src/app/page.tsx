@@ -82,16 +82,23 @@ export default function Home() {
 
 
   const getDifficulty = useCallback(() => {
-    const level = Math.floor(streak / QUESTIONS_PER_LEVEL);
-    switch (level) {
-      case 0: // Streak 0-9
-        return { range: 10, operator: '+' as Operator, level: 1 };
-      case 1: // Streak 10-19
-        return { range: 20, operator: '+' as Operator, level: 2 };
-      case 2: // Streak 20-29
-        return { range: 50, operator: '+' as Operator, level: 3 };
-      default: // Streak 30+
-        return { range: 12, operator: 'x' as Operator, level: 4 };
+    const level = Math.max(1, Math.floor(streak / QUESTIONS_PER_LEVEL) + 1);
+
+    if (level <= 20) { // Addition levels
+        let range;
+        if (level <= 5) range = 10;
+        else if (level <= 10) range = 25;
+        else if (level <= 15) range = 50;
+        else range = 100;
+        return { range, operator: '+' as Operator, level: Math.min(level, 40) };
+    } else { // Multiplication levels
+        let range;
+        const mulLevel = level - 20;
+        if (mulLevel <= 5) range = 10;       // e.g., 8x9
+        else if (mulLevel <= 10) range = 12; // e.g., 11x12
+        else if (mulLevel <= 15) range = 15; // e.g., 13x14
+        else range = 20;                     // e.g., 18x19
+        return { range, operator: 'x' as Operator, level: Math.min(level, 40) };
     }
   }, [streak]);
 
@@ -418,5 +425,7 @@ export default function Home() {
   );
 }
 
+
+    
 
     
