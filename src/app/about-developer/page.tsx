@@ -46,7 +46,7 @@ export default function AboutDeveloperPage() {
           <CardContent className="space-y-4 text-muted-foreground">
             <p>Are you a developer, designer, or creator with an exciting project in mind? Peter is always open to new ideas and partnerships. If you're interested in collaborating, don't hesitate to get in touch!</p>
             <div className="flex flex-wrap gap-4 pt-2">
-                <a href="mailto:peterdamiano@example.com" className="inline-flex items-center gap-2">
+                <a href="mailto:petedianotech@gmail.com" className="inline-flex items-center gap-2">
                     <Button variant="outline">
                         <Mail /> Email
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
