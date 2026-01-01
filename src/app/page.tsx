@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 import { User } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { useFirestore }from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection } from 'firebase/firestore';
 
@@ -29,6 +30,7 @@ const COMBO_MULTIPLIER_THRESHOLD = 5;
 const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
 const INITIAL_TIME_POWER_UPS = 3;
 const QUESTIONS_PER_LEVEL = 10;
+const SAVE_STREAK_MINIMUM = 5;
 
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -108,7 +110,7 @@ export default function Home() {
         num2 = Math.floor(Math.random() * range) + 1;
       }
       correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
-    } while (correctAnswer <= 1);
+    } while (correctAnswer <= 1 || (num1 === 1 && num2 === 1));
 
 
     const answers = [{ text: String(correctAnswer), correct: true }];
@@ -136,8 +138,19 @@ export default function Home() {
 
   const handleTimeout = useCallback(() => {
     setScoreMultiplier(1);
-    setGameState('save-streak');
-  }, []);
+    if (streak >= SAVE_STREAK_MINIMUM) {
+      setGameState('save-streak');
+    } else {
+      handleEndGame();
+    }
+  }, [streak]);
+
+  const handleEndGame = () => {
+    const newGameOverCount = gameOverCount + 1;
+    setGameOverCount(newGameOverCount);
+    localStorage.setItem('gameOverCount', String(newGameOverCount));
+    setGameState('game-over');
+  };
   
   useEffect(() => {
     // This runs only once on mount, making the app client-side ready.
@@ -272,7 +285,11 @@ export default function Home() {
       generateQuestion();
     } else {
       setScoreMultiplier(1);
-      setGameState('save-streak');
+      if (streak >= SAVE_STREAK_MINIMUM) {
+        setGameState('save-streak');
+      } else {
+        handleEndGame();
+      }
     }
   };
   
@@ -280,13 +297,6 @@ export default function Home() {
     // In a real app, integrate an ad SDK and wait for the reward.
     generateQuestion();
     setGameState('playing');
-  };
-
-  const handleEndGame = () => {
-    const newGameOverCount = gameOverCount + 1;
-    setGameOverCount(newGameOverCount);
-    localStorage.setItem('gameOverCount', String(newGameOverCount));
-    setGameState('game-over');
   };
   
   const handleUseTimePowerUp = () => {
@@ -407,3 +417,6 @@ export default function Home() {
     </main>
   );
 }
+
+
+    
