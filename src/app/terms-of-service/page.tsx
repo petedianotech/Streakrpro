@@ -71,7 +71,6 @@ export default function TermsOfServicePage() {
           </CardHeader>
           <CardContent className="space-y-4 text-muted-foreground">
             <p>We reserve the right to modify these terms at any time. We will notify you of any changes by posting the new Terms of Service on this page. You are advised to review these Terms of Service periodically for any changes.</p>
-          </alises>
           </CardContent>
         </Card>
 
