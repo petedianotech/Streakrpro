@@ -1,31 +1,27 @@
 /**
- * Core Philosophy: This ruleset establishes a security model with three distinct access patterns.
+ * Core Philosophy: This ruleset establishes a security model with four distinct access patterns.
  * User data is strictly private and owner-only. The global leaderboard is publicly readable but
- * entries can only be created, modified, or deleted by their owner. Daily challenges are
- * publicly readable by any authenticated user but are read-only to prevent tampering by clients.
+ * entries can only be created by their owner. Daily challenges are publicly readable by any
+ * authenticated user but are read-only. A dedicated `usernames` collection enforces unique
+ * usernames across the application by using the username itself as the document ID.
  *
- * Data Structure: The data is organized into three top-level collections:
+ * Data Structure: The data is organized into four top-level collections:
  * 1. /users/{userId}: Contains private user profile information.
  * 2. /leaderboard/{leaderboardEntryId}: A global collection for public scores.
  * 3. /daily_challenges/{dailyChallengeId}: A global collection for daily challenges.
+ * 4. /usernames/{username}: A collection where document IDs are lowercase usernames, used for uniqueness checks.
  *
  * Key Security Decisions:
  * - User Listing Disabled: The `/users` collection cannot be listed to protect user privacy.
- * - Ownership Enforcement: Writes to `/users` and `/leaderboard` collections are strictly
- *   controlled by checking the authenticated user's UID against an ownership field.
+ * - Ownership Enforcement: Writes to `/users`, `/leaderboard`, and `/usernames` collections are strictly
+ *   controlled by checking the authenticated user's UID.
+ * - Username Uniqueness: A user can only create a document in `/usernames` if it doesn't already exist.
+ *   This is the core mechanism for reserving a unique username. Deletion is also owner-only.
  * - Read-Only Global Data: The `/daily_challenges` collection is read-only for clients.
- *   This assumes challenges are managed via a trusted server environment or the Firebase Console,
- *   which is a secure default when creator roles are not defined.
  *
  * Denormalization for Authorization: The rules rely on the 'userId' field being denormalized
- * onto each `LeaderboardEntry` document. This allows for fast and inexpensive security checks
- * on write operations without needing to perform extra `get()` calls to other documents,
- * enforcing the principle of Authorization Independence.
- *
- * Structural Segregation: The use of separate top-level collections for user-specific data
- * (`/users`), public-read/owner-write data (`/leaderboard`), and public-read-only data
- * (`/daily_challenges`) creates a clear and secure separation of concerns. This is inherently
- * more performant and secure for list operations than a single collection with role flags.
+ * onto each `LeaderboardEntry` and `Username` document. This allows for fast and inexpensive security checks
+ * on write operations without needing to perform extra `get()` calls, enforcing Authorization Independence.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -51,20 +47,12 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if a document exists AND the authenticated user is the owner.
-     * Prevents modification or deletion of non-existent documents.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
      * Validates that the user ID in the document data matches the user's auth UID on create.
      */
     function createdByOwner() {
       return isOwner(request.resource.data.userId);
     }
-
+    
     /**
      * Ensures the userId field cannot be changed after creation.
      */
@@ -72,53 +60,52 @@ service cloud.firestore {
       return request.resource.data.userId == resource.data.userId;
     }
 
+
     // ----------------------------------------------------------------------
     // Collection Rules
     // ----------------------------------------------------------------------
 
     /**
-     * @description Secures the user's private profile document. Only the user can create, read, or write their own data.
+     * @description Secures the user's private profile document.
      * @path /users/{userId}
-     * @allow A logged-in user (auth.uid='user123') can (create) their own document at /users/user123.
-     * @deny An anonymous user cannot (get) any user document.
-     * @deny A logged-in user (auth.uid='user123') cannot (update) another user's document at /users/user456.
-     * @principle Restricts access to a user's own data tree and prevents enumeration of all users.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // CRITICAL: Prevent listing all users in the database.
+      allow get, update: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow delete: if isOwner(userId);
+      allow list: if false; // CRITICAL: Prevent listing all users.
     }
 
     /**
-     * @description Manages entries on the global leaderboard. Anyone can read, but only the owner can write their own entry.
+     * @description Manages entries on the global leaderboard.
      * @path /leaderboard/{leaderboardEntryId}
-     * @allow An authenticated user can (list) all documents in the /leaderboard collection.
-     * @allow A logged-in user (auth.uid='user123') can (create) a new entry where the `userId` field is 'user123'.
-     * @deny A logged-in user (auth.uid='user123') cannot (update) an entry owned by 'user456'.
-     * @principle Implements a "Public Read with Owner-Only Writes" pattern using a denormalized ownership field.
      */
     match /leaderboard/{leaderboardEntryId} {
       allow get, list: if isSignedIn();
-      allow create: if createdByOwner();
-      allow update: if isExistingOwner(resource.data.userId) && ownerIsImmutable();
-      allow delete: if isExistingOwner(resource.data.userId);
+      allow create: if createdByOwner() && request.resource.data.username != null;
+      allow update, delete: if false; // Leaderboard entries are immutable.
     }
 
     /**
-     * @description Defines access for daily challenges. These are public to all authenticated users but cannot be modified.
+     * @description Defines access for daily challenges. Read-only for clients.
      * @path /daily_challenges/{dailyChallengeId}
-     * @allow Any authenticated user can (get) or (list) the daily challenges.
-     * @deny Any user, authenticated or not, cannot (create), (update), or (delete) a daily challenge.
-     * @principle Secures global configuration data by making it read-only for clients, assuming writes are handled by a trusted backend.
      */
     match /daily_challenges/{dailyChallengeId} {
       allow get, list: if isSignedIn();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Enforces unique usernames. Document ID is the lowercase username.
+     * @path /usernames/{username}
+     */
+    match /usernames/{username} {
+      allow get: if isSignedIn();
+      // Only the user themselves can create their username document, and only if it doesn't already exist.
+      allow create: if createdByOwner() && !exists(/databases/$(database)/documents/usernames/$(username));
+      // Only the user who owns the username can delete it.
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, list: if false;
     }
   }
 }

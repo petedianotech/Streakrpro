@@ -10,10 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection } from 'firebase/firestore';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 
@@ -254,10 +253,12 @@ export default function Home() {
     }
   };
 
-  const handleAnswer = (isCorrect: boolean) => {
+  const handleAnswer = (isCorrect: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
     const responseTime = TIMER_SECONDS - timer;
     setTotalQuestions(prev => prev + 1);
     setTotalResponseTime(prev => prev + responseTime);
+     
+    event.currentTarget.blur();
 
     if (isCorrect) {
       triggerHapticFeedback();
@@ -321,14 +322,14 @@ export default function Home() {
     }
   };
   
-  const handleSaveScore = (username: string) => {
+  const handleSaveScore = async (username: string): Promise<boolean> => {
     if (!user) {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'You must be signed in to save your score.',
       });
-      return;
+      return false;
     }
     if (!username) {
         toast({
@@ -336,27 +337,72 @@ export default function Home() {
           title: 'Error',
           description: 'Please enter a username.',
         });
-        return;
-      }
-  
-    const leaderboardRef = collection(firestore, 'leaderboard');
-    addDocumentNonBlocking(leaderboardRef, {
-      userId: user.uid,
-      username: username,
-      score: score,
-      streak: streak,
-      timestamp: new Date(),
-    });
-    
-    // also update the user's display name
-    const userRef = doc(firestore, 'users', user.uid);
-    setDoc(userRef, { id: user.uid, username }, { merge: true });
+        return false;
+    }
 
-    toast({
-      title: 'Score Saved!',
-      description: 'Your score has been added to the leaderboard.',
-    });
-  };
+    const lowercaseUsername = username.toLowerCase();
+    const usernamesRef = collection(firestore, 'usernames');
+    const userRef = doc(firestore, 'users', user.uid);
+    const usernameRef = doc(usernamesRef, lowercaseUsername);
+
+    try {
+        const batch = writeBatch(firestore);
+        
+        // Check if username exists
+        const usernameDoc = await getDoc(usernameRef);
+        if (usernameDoc.exists() && usernameDoc.data()?.userId !== user.uid) {
+            toast({
+                variant: 'destructive',
+                title: 'Username taken',
+                description: 'That username is already in use. Please choose another one.',
+            });
+            return false;
+        }
+        
+        // If user is changing their name, release the old one
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists() && userDoc.data()?.username) {
+            const oldUsername = userDoc.data()?.username.toLowerCase();
+            if (oldUsername !== lowercaseUsername) {
+                const oldUsernameRef = doc(usernamesRef, oldUsername);
+                batch.delete(oldUsernameRef);
+            }
+        }
+
+        // Save new leaderboard entry
+        const leaderboardRef = collection(firestore, 'leaderboard');
+        const newLeaderboardEntryRef = doc(leaderboardRef);
+        batch.set(newLeaderboardEntryRef, {
+            userId: user.uid,
+            username: username,
+            score: score,
+            streak: streak,
+            timestamp: new Date(),
+        });
+        
+        // Update user profile
+        batch.set(userRef, { id: user.uid, username: username }, { merge: true });
+
+        // Reserve new username
+        batch.set(usernameRef, { userId: user.uid });
+        
+        await batch.commit();
+
+        toast({
+          title: 'Score Saved!',
+          description: 'Your score has been added to the leaderboard.',
+        });
+        return true;
+    } catch (error) {
+        console.error("Error saving score:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error saving score',
+            description: 'Could not save your score. Please try again.',
+        });
+        return false;
+    }
+};
 
   const renderContent = () => {
     if (!isClient || isUserLoading) {
@@ -414,6 +460,7 @@ export default function Home() {
             onStart={startGame}
             dailyStreak={dailyStreak}
             bestStreak={bestStreak}
+            user={user}
           />
         );
     }
@@ -427,5 +474,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

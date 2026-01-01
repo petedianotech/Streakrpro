@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import Link from 'next/link';
 import Script from 'next/script';
+import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
   title: 'Streakrpro',
@@ -25,6 +26,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased flex flex-col min-h-screen">
         <FirebaseClientProvider>
+          <Header />
           <div className="flex-grow">
             {children}
           </div>

@@ -11,7 +11,7 @@ type GameScreenProps = {
   streak: number;
   dailyStreak: number;
   timerProgress: number;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (isCorrect: boolean, event: React.MouseEvent<HTMLButtonElement>) => void;
   scoreMultiplier: number;
   timePowerUps: number;
   onUseTimePowerUp: () => void;
@@ -91,10 +91,7 @@ export function GameScreen({
                 key={index}
                 variant="secondary"
                 className="h-28 text-4xl font-bold border-2 border-border hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-                onClick={(e) => {
-                  onAnswer(answer.correct);
-                  e.currentTarget.blur();
-                }}
+                onClick={(e) => onAnswer(answer.correct, e)}
               >
                 {answer.text}
               </Button>

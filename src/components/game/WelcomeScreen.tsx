@@ -1,17 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Award, Flame } from "lucide-react";
+import { Award, Flame, User as UserIcon } from "lucide-react";
+import Link from 'next/link';
+import { User } from "firebase/auth";
 
 type WelcomeScreenProps = {
   onStart: () => void;
   dailyStreak: number;
   bestStreak: number;
+  user: User | null;
 };
 
-export function WelcomeScreen({ onStart, dailyStreak, bestStreak }: WelcomeScreenProps) {
+export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user }: WelcomeScreenProps) {
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
       <CardHeader>
+        {user && !user.isAnonymous ? (
+            <div className="flex justify-center items-center gap-2 text-muted-foreground mb-4">
+                <UserIcon className="w-5 h-5"/>
+                <p className="text-sm font-medium text-foreground">{user.displayName || user.email}</p>
+            </div>
+        ) : null}
         <div className="flex justify-center items-center gap-6 mb-4 text-muted-foreground">
           <div className="flex items-center gap-2">
             <Flame className="w-6 h-6 text-accent" />

@@ -14,6 +14,10 @@
           "type": "string",
           "description": "Reference to the User entity. (Relationship: User 1:N LeaderboardEntry)"
         },
+        "username": {
+          "type": "string",
+          "description": "The user's username at the time of posting."
+        },
         "score": {
           "type": "number",
           "description": "The user's score for this leaderboard entry."
@@ -31,6 +35,7 @@
       "required": [
         "id",
         "userId",
+        "username",
         "score",
         "streak",
         "timestamp"
@@ -44,11 +49,11 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user."
+          "description": "Unique identifier for the user, matches auth UID."
         },
         "username": {
           "type": "string",
-          "description": "The user's username."
+          "description": "The user's unique username."
         },
         "dailyChallengeCompletions": {
           "type": "array",
@@ -61,6 +66,21 @@
       "required": [
         "id",
         "username"
+      ]
+    },
+    "Username": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Username",
+      "type": "object",
+      "description": "Represents a unique, reserved username to enforce uniqueness across the application. The document ID is the lowercase username.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns this username."
+        }
+      },
+      "required": [
+        "userId"
       ]
     },
     "DailyChallenge": {
@@ -110,7 +130,7 @@
           "schema": {
             "$ref": "#/backend/entities/LeaderboardEntry"
           },
-          "description": "Represents a single entry in the global leaderboard. Includes denormalized 'userId' for authorization independence.",
+          "description": "Represents a single entry in the global leaderboard. Includes denormalized 'userId' and 'username' for authorization and display.",
           "params": [
             {
               "name": "leaderboardEntryId",
@@ -126,11 +146,27 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Represents a user of the application. Contains user profile information and an array of daily challenge completions.",
+          "description": "Represents a user of the application. Contains user profile information.",
           "params": [
             {
               "name": "userId",
               "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/usernames/{username}",
+        "definition": {
+          "entityName": "Username",
+          "schema": {
+            "$ref": "#/backend/entities/Username"
+          },
+          "description": "Collection to enforce unique usernames. Document ID is the lowercase username.",
+          "params": [
+            {
+              "name": "username",
+              "description": "The lowercase username being reserved."
             }
           ]
         }
@@ -152,6 +188,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the core features of the Streakrpro app, focusing on leaderboards, daily challenges, and user data, while adhering to the principles of Authorization Independence, Clarity of Intent, and DBAC.  The structure uses path-based ownership for user-specific data and a global collection for the leaderboard. Daily challenges are stored in a dedicated collection, allowing for easy querying and management.\n\n*   **Authorization Independence:** User-specific data (e.g., `dailyChallengeCompletions`) is stored under the `/users/{userId}` path, ensuring clear ownership. Leaderboard entries include the `userId`, eliminating the need for `get()` calls in security rules to verify ownership. This also applies to daily challenge completions. The denormalization strategy avoids hierarchical authorization dependencies, enabling atomic operations.\n*   **Clarity of Intent:** The structure clearly separates user data, leaderboard data, and daily challenge data into distinct collections.  The naming conventions are explicit (e.g., `dailyChallengeCompletions`), making the purpose of each collection and field clear.\n*   **QAPs (Rules are not Filters):** The structure supports secure `list` operations.  Listing leaderboard entries does not require filtering based on user roles or permissions, as it's a global collection. Listing daily challenges is also straightforward.  User-specific data is accessed via path-based ownership, ensuring that only the user can access their own data.\n\n*   **Leaderboard**: Leaderboard entries are stored in a global collection (`/leaderboard`). To support QAPs and denormalization, each entry contains the `userId`.\n*   **User Data**: Each user's data, including `dailyChallengeCompletions`, is stored under the `/users/{userId}` path. This ensures clear ownership and simplifies security rules.\n*   **Daily Challenges**: Daily challenges are stored in the `/daily_challenges` collection. This allows for easy querying and management of daily challenges.\n\nThis design promotes security, scalability, and debuggability, aligning with the core design principles and strategy mandates."
+    "reasoning": "The Firestore data structure is designed to support the core features of the Streakrpro app, focusing on leaderboards, daily challenges, and user data, while adhering to the principles of Authorization Independence, Clarity of Intent, and DBAC.  The structure uses path-based ownership for user-specific data and a global collection for the leaderboard. A new `/usernames` collection is added to enforce username uniqueness, which is a critical requirement. Daily challenges are stored in a dedicated collection, allowing for easy querying and management.\n\n*   **Authorization Independence:** User-specific data (e.g., `dailyChallengeCompletions`) is stored under the `/users/{userId}` path, ensuring clear ownership. Leaderboard entries include the `userId`, eliminating the need for `get()` calls in security rules to verify ownership. The denormalization strategy avoids hierarchical authorization dependencies, enabling atomic operations.\n*   **Clarity of Intent:** The structure clearly separates user data, leaderboard data, username reservations, and daily challenge data into distinct collections.  The naming conventions are explicit, making the purpose of each collection and field clear.\n*   **Username Uniqueness**: A new top-level collection `/usernames/{username}` is introduced. The document ID is the lowercase version of the username. This allows for an atomic `create` operation to reserve a username, which will fail if the document already exists, thus enforcing uniqueness at the database level. The security rules will ensure that only the correct user can create or delete their own username document.\n*   **QAPs (Rules are not Filters):** The structure supports secure `list` operations.  Listing leaderboard entries does not require filtering based on user roles or permissions, as it's a global collection. Listing daily challenges is also straightforward.  User-specific data is accessed via path-based ownership, ensuring that only the user can access their own data.\n\nThis design promotes security, scalability, and debuggability, aligning with the core design principles and strategy mandates."
   }
 }
