@@ -5,9 +5,10 @@ type GameOverScreenProps = {
   finalScore: number;
   finalStreak: number;
   onPlayAgain: () => void;
+  showAd: boolean;
 };
 
-export function GameOverScreen({ finalScore, finalStreak, onPlayAgain }: GameOverScreenProps) {
+export function GameOverScreen({ finalScore, finalStreak, onPlayAgain, showAd }: GameOverScreenProps) {
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
       <CardHeader>
@@ -26,9 +27,11 @@ export function GameOverScreen({ finalScore, finalStreak, onPlayAgain }: GameOve
             </div>
         </div>
         
-        <div className="bg-muted rounded-lg h-48 flex items-center justify-center">
-            <p className="text-muted-foreground">Interstitial Ad Placeholder</p>
-        </div>
+        {showAd && (
+          <div className="bg-muted rounded-lg h-48 flex items-center justify-center">
+              <p className="text-muted-foreground">Interstitial Ad Placeholder</p>
+          </div>
+        )}
       </CardContent>
       <CardFooter>
         <Button onClick={onPlayAgain} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">

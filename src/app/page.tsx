@@ -21,6 +21,7 @@ const TIMER_SECONDS = 10;
 const PERFECT_STREAK_BONUS = 100;
 const COMBO_MULTIPLIER_THRESHOLD = 5;
 const COMBO_MULTIPLIER = 1.5;
+const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -39,6 +40,7 @@ export default function Home() {
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [isClient, setIsClient] = useState(false);
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
+  const [gameOverCount, setGameOverCount] = useState(0);
   const { toast } = useToast();
 
   const getDifficulty = useCallback(() => {
@@ -203,6 +205,7 @@ export default function Home() {
   };
 
   const handleEndGame = () => {
+    setGameOverCount(prev => prev + 1);
     setGameState('game-over');
   };
 
@@ -238,6 +241,7 @@ export default function Home() {
             finalScore={score}
             finalStreak={streak}
             onPlayAgain={startGame}
+            showAd={gameOverCount % INTERSTITIAL_AD_FREQUENCY === 0}
           />
         );
       case 'welcome':
@@ -259,5 +263,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
