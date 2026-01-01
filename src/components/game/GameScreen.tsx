@@ -91,7 +91,10 @@ export function GameScreen({
                 key={index}
                 variant="secondary"
                 className="h-28 text-4xl font-bold border-2 border-border hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-                onClick={() => onAnswer(answer.correct)}
+                onClick={(e) => {
+                  onAnswer(answer.correct);
+                  e.currentTarget.blur();
+                }}
               >
                 {answer.text}
               </Button>
