@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -17,7 +18,6 @@ type GameOverScreenProps = {
   finalScore: number;
   finalStreak: number;
   onPlayAgain: () => void;
-  showAd: boolean;
   bestStreak: number;
   accuracy: number;
   avgResponseTime: number;
@@ -29,7 +29,6 @@ export function GameOverScreen({
   finalScore, 
   finalStreak, 
   onPlayAgain, 
-  showAd,
   bestStreak,
   accuracy,
   avgResponseTime,
@@ -150,11 +149,6 @@ export function GameOverScreen({
             </div>
         </form>
 
-        {showAd && (
-          <div className="bg-muted rounded-lg h-48 flex items-center justify-center">
-              <p className="text-muted-foreground">Interstitial Ad Placeholder</p>
-          </div>
-        )}
       </CardContent>
       <CardFooter className="flex-col sm:flex-row gap-2">
         <Button onClick={onPlayAgain} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
