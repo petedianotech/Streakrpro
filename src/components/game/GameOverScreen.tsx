@@ -2,7 +2,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Award, Share2, Target, Timer } from "lucide-react";
+import { Award, Share2, Target, Timer, Trophy } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useDoc } from "@/firebase";
+import { doc, DocumentReference } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { User } from "firebase/auth";
+import Link from "next/link";
+
 
 type GameOverScreenProps = {
   finalScore: number;
@@ -12,6 +21,8 @@ type GameOverScreenProps = {
   bestStreak: number;
   accuracy: number;
   avgResponseTime: number;
+  onSaveScore: (username: string) => void;
+  user: User | null;
 };
 
 export function GameOverScreen({ 
@@ -21,9 +32,23 @@ export function GameOverScreen({
   showAd,
   bestStreak,
   accuracy,
-  avgResponseTime 
+  avgResponseTime,
+  onSaveScore,
+  user
 }: GameOverScreenProps) {
   const { toast } = useToast();
+  const [username, setUsername] = useState("");
+  const firestore = useFirestore();
+  const userDocRef = user ? doc(firestore, 'users', user.uid) as DocumentReference<{username: string}> : null;
+  const { data: userData } = useDoc(userDocRef);
+  const [scoreSaved, setScoreSaved] = useState(false);
+
+  useEffect(() => {
+    if (userData) {
+      setUsername(userData.username);
+    }
+  }, [userData]);
+
 
   const handleShare = async () => {
     const shareText = `I scored ${finalScore} with a ${finalStreak} streak in Streakrpro! Can you beat me?`;
@@ -37,8 +62,11 @@ export function GameOverScreen({
           url: shareUrl,
         });
       } catch (error) {
-        // Silently ignore errors from dismissing the share sheet.
-        console.log("Share dialog dismissed or failed", error);
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          // Silently ignore abort errors from the user dismissing the share sheet.
+        } else {
+          console.error("Share failed:", error);
+        }
       }
     } else {
       // Fallback for browsers that do not support the Web Share API
@@ -58,6 +86,13 @@ export function GameOverScreen({
       }
     }
   };
+
+  const handleSaveScore = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSaveScore(username);
+    setScoreSaved(true);
+  };
+
 
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
@@ -96,7 +131,25 @@ export function GameOverScreen({
             <p className="text-xs text-muted-foreground">AVG TIME</p>
           </div>
         </div>
+
+        <Separator />
         
+        <form onSubmit={handleSaveScore} className="space-y-4">
+            <Label htmlFor="username" className="text-left block text-sm font-medium text-muted-foreground">Enter your name for the leaderboard:</Label>
+            <div className="flex gap-2">
+                <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Your Name"
+                    disabled={scoreSaved}
+                />
+                <Button type="submit" disabled={scoreSaved || !username}>
+                    {scoreSaved ? 'Saved!' : 'Save Score'}
+                </Button>
+            </div>
+        </form>
+
         {showAd && (
           <div className="bg-muted rounded-lg h-48 flex items-center justify-center">
               <p className="text-muted-foreground">Interstitial Ad Placeholder</p>
@@ -106,6 +159,9 @@ export function GameOverScreen({
       <CardFooter className="flex-col sm:flex-row gap-2">
         <Button onClick={onPlayAgain} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
           Play Again
+        </Button>
+        <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
+            <Link href="/leaderboard"><Trophy className="mr-2" /> Leaderboard</Link>
         </Button>
         <Button onClick={handleShare} size="lg" variant="outline" className="w-full sm:w-auto">
           <Share2 className="mr-2" /> Share

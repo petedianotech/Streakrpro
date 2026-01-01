@@ -7,6 +7,12 @@ import { SaveStreakScreen } from '@/components/game/SaveStreakScreen';
 import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
+import { User } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore }from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection } from 'firebase/firestore';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 
@@ -55,12 +61,22 @@ export default function Home() {
   const [gameOverCount, setGameOverCount] = useState(0);
   const [timePowerUps, setTimePowerUps] = useState(INITIAL_TIME_POWER_UPS);
   const { toast } = useToast();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
 
   // Session Stats
   const [bestStreak, setBestStreak] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [totalResponseTime, setTotalResponseTime] = useState(0);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [isUserLoading, user, auth]);
 
 
   const getDifficulty = useCallback(() => {
@@ -283,9 +299,46 @@ export default function Home() {
       });
     }
   };
+  
+  const handleSaveScore = (username: string) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'You must be signed in to save your score.',
+      });
+      return;
+    }
+    if (!username) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please enter a username.',
+        });
+        return;
+      }
+  
+    const leaderboardRef = collection(firestore, 'leaderboard');
+    addDocumentNonBlocking(leaderboardRef, {
+      userId: user.uid,
+      username: username,
+      score: score,
+      streak: streak,
+      timestamp: new Date(),
+    });
+    
+    // also update the user's display name
+    const userRef = doc(firestore, 'users', user.uid);
+    setDoc(userRef, { id: user.uid, username }, { merge: true });
+
+    toast({
+      title: 'Score Saved!',
+      description: 'Your score has been added to the leaderboard.',
+    });
+  };
 
   const renderContent = () => {
-    if (!isClient) {
+    if (!isClient || isUserLoading) {
       return (
         <div className="w-full max-w-md mx-auto">
           <Skeleton className="h-[96px] w-full mb-6" />
@@ -330,6 +383,8 @@ export default function Home() {
             bestStreak={bestStreak}
             accuracy={accuracy}
             avgResponseTime={avgResponseTime}
+            onSaveScore={handleSaveScore}
+            user={user}
           />
         );
       case 'welcome':
