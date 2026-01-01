@@ -43,6 +43,13 @@ export default function Home() {
   const [gameOverCount, setGameOverCount] = useState(0);
   const { toast } = useToast();
 
+  // Session Stats
+  const [bestStreak, setBestStreak] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [totalResponseTime, setTotalResponseTime] = useState(0);
+
+
   const getDifficulty = useCallback(() => {
     if (streak >= 20) return { range: 100, operator: 'x' as Operator, level: 4 };
     if (streak >= 15) return { range: 50, operator: '+' as Operator, level: 3 };
@@ -92,6 +99,7 @@ export default function Home() {
   
   useEffect(() => {
     setIsClient(true);
+    setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
   }, []);
 
   useEffect(() => {
@@ -130,6 +138,7 @@ export default function Home() {
     }
     
     setDailyStreak(currentDailyStreak);
+    setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
   }, [isClient]);
 
   const startGame = useCallback(() => {
@@ -161,17 +170,24 @@ export default function Home() {
     setScore(0);
     setStreak(0);
     setScoreMultiplier(1);
+    setTotalQuestions(0);
+    setCorrectAnswers(0);
+    setTotalResponseTime(0);
     generateQuestion();
     setGameState('playing');
   }, [generateQuestion, isClient]);
 
   const handleAnswer = (isCorrect: boolean) => {
+    setTotalQuestions(prev => prev + 1);
+    setTotalResponseTime(prev => prev + (TIMER_SECONDS - timer));
+
     if (isCorrect) {
       const newStreak = streak + 1;
       const points = Math.round(10 * scoreMultiplier);
       let newScore = score + points;
 
       setStreak(newStreak);
+      setCorrectAnswers(prev => prev + 1);
 
       if (newStreak % PERFECT_STREAK_BONUS === 0 && newStreak > 0) {
         newScore += PERFECT_STREAK_BONUS;
@@ -205,6 +221,10 @@ export default function Home() {
   };
 
   const handleEndGame = () => {
+    if (streak > bestStreak) {
+      setBestStreak(streak);
+      localStorage.setItem('bestStreak', String(streak));
+    }
     setGameOverCount(prev => prev + 1);
     setGameState('game-over');
   };
@@ -236,12 +256,17 @@ export default function Home() {
           />
         );
       case 'game-over':
+        const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+        const avgResponseTime = correctAnswers > 0 ? totalResponseTime / correctAnswers : 0;
         return (
           <GameOverScreen
             finalScore={score}
             finalStreak={streak}
             onPlayAgain={startGame}
             showAd={gameOverCount % INTERSTITIAL_AD_FREQUENCY === 0}
+            bestStreak={bestStreak}
+            accuracy={accuracy}
+            avgResponseTime={avgResponseTime}
           />
         );
       case 'welcome':
@@ -250,6 +275,7 @@ export default function Home() {
           <WelcomeScreen
             onStart={startGame}
             dailyStreak={dailyStreak}
+            bestStreak={bestStreak}
           />
         );
     }
