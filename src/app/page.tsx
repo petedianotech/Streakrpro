@@ -6,6 +6,7 @@ import { GameScreen } from '@/components/game/GameScreen';
 import { SaveStreakScreen } from '@/components/game/SaveStreakScreen';
 import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 
@@ -14,7 +15,12 @@ type Question = {
   answers: { text: string; correct: boolean }[];
 };
 
-const TIMER_SECONDS = 5;
+type Operator = '+' | 'x';
+
+const TIMER_SECONDS = 10;
+const PERFECT_STREAK_BONUS = 100;
+const COMBO_MULTIPLIER_THRESHOLD = 5;
+const COMBO_MULTIPLIER = 1.5;
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -32,34 +38,53 @@ export default function Home() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [isClient, setIsClient] = useState(false);
+  const [scoreMultiplier, setScoreMultiplier] = useState(1);
+  const { toast } = useToast();
+
+  const getDifficulty = useCallback(() => {
+    if (streak >= 20) return { range: 100, operator: 'x' as Operator, level: 4 };
+    if (streak >= 15) return { range: 50, operator: '+' as Operator, level: 3 };
+    if (streak >= 10) return { range: 20, operator: '+' as Operator, level: 2 };
+    return { range: 10, operator: '+' as Operator, level: 1 };
+  }, [streak]);
 
   const generateQuestion = useCallback(() => {
-    const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = Math.floor(Math.random() * 10) + 1;
-    const correctAnswer = num1 + num2;
+    const { range, operator } = getDifficulty();
+    
+    let num1, num2;
+    if (operator === 'x') {
+      num1 = Math.floor(Math.random() * 10) + 1; // Keep multiplication manageable
+      num2 = Math.floor(Math.random() * 10) + 1;
+    } else {
+      num1 = Math.floor(Math.random() * range) + 1;
+      num2 = Math.floor(Math.random() * range) + 1;
+    }
 
+    const correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
     const answers = [{ text: String(correctAnswer), correct: true }];
 
     while (answers.length < 4) {
-      const incorrectOffset = Math.floor(Math.random() * 9) - 4; // -4 to +4
+      const incorrectOffset = Math.floor(Math.random() * (range / 2)) - (range / 4);
       if (incorrectOffset === 0 && correctAnswer !== 0) continue;
       
       let incorrectAnswer = correctAnswer + incorrectOffset;
       if (incorrectAnswer < 0) incorrectAnswer = Math.abs(incorrectAnswer) + 1; // Ensure positive
+      incorrectAnswer = Math.round(incorrectAnswer);
 
-      if (!answers.some(a => a.text === String(incorrectAnswer))) {
+      if (incorrectAnswer !== correctAnswer && !answers.some(a => a.text === String(incorrectAnswer))) {
         answers.push({ text: String(incorrectAnswer), correct: false });
       }
     }
 
     setQuestion({
-      text: `${num1} + ${num2}`,
+      text: `${num1} ${operator} ${num2}`,
       answers: shuffleArray(answers),
     });
     setTimer(TIMER_SECONDS);
-  }, []);
+  }, [getDifficulty]);
 
   const handleTimeout = useCallback(() => {
+    setScoreMultiplier(1);
     setGameState('save-streak');
   }, []);
   
@@ -133,16 +158,40 @@ export default function Home() {
 
     setScore(0);
     setStreak(0);
+    setScoreMultiplier(1);
     generateQuestion();
     setGameState('playing');
   }, [generateQuestion, isClient]);
 
   const handleAnswer = (isCorrect: boolean) => {
     if (isCorrect) {
-      setScore(s => s + 10);
-      setStreak(s => s + 1);
+      const newStreak = streak + 1;
+      const points = Math.round(10 * scoreMultiplier);
+      let newScore = score + points;
+
+      setStreak(newStreak);
+
+      if (newStreak % PERFECT_STREAK_BONUS === 0 && newStreak > 0) {
+        newScore += PERFECT_STREAK_BONUS;
+        toast({
+          title: "Perfect Streak!",
+          description: `+${PERFECT_STREAK_BONUS} bonus points!`,
+        });
+      }
+      
+      if (newStreak % COMBO_MULTIPLIER_THRESHOLD === 0 && newStreak > 0) {
+        const newMultiplier = scoreMultiplier * COMBO_MULTIPLIER;
+        setScoreMultiplier(newMultiplier);
+        toast({
+          title: "Combo x" + newMultiplier.toFixed(1) + "!",
+          description: "Your score is multiplied!",
+        });
+      }
+
+      setScore(newScore);
       generateQuestion();
     } else {
+      setScoreMultiplier(1);
       setGameState('save-streak');
     }
   };
@@ -172,6 +221,7 @@ export default function Home() {
             dailyStreak={dailyStreak}
             timerProgress={(timer / TIMER_SECONDS) * 100}
             onAnswer={handleAnswer}
+            scoreMultiplier={scoreMultiplier}
           />
         );
       case 'save-streak':
@@ -209,3 +259,5 @@ export default function Home() {
     </main>
   );
 }
+
+    

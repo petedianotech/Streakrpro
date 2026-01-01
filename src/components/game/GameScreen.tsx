@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Flame, Star } from "lucide-react";
+import { Flame, Star, Zap } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 type GameScreenProps = {
@@ -12,6 +12,7 @@ type GameScreenProps = {
   dailyStreak: number;
   timerProgress: number;
   onAnswer: (isCorrect: boolean) => void;
+  scoreMultiplier: number;
 };
 
 export function GameScreen({
@@ -22,10 +23,11 @@ export function GameScreen({
   dailyStreak,
   timerProgress,
   onAnswer,
+  scoreMultiplier,
 }: GameScreenProps) {
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-3 text-center">
+      <div className="grid grid-cols-4 text-center">
         <div className="flex flex-col items-center justify-center gap-1 px-2">
           <span className="text-xs font-semibold text-muted-foreground tracking-widest">SCORE</span>
           <div className="flex items-center gap-1.5">
@@ -39,6 +41,14 @@ export function GameScreen({
            <div className="flex items-center gap-1.5">
             <Flame className="w-5 h-5 text-accent" />
             <span className="text-xl font-bold">{streak}</span>
+          </div>
+          <Separator orientation="vertical" className="absolute right-0 h-1/2" />
+        </div>
+        <div className="flex flex-col items-center justify-center gap-1 px-2 relative">
+           <span className="text-xs font-semibold text-muted-foreground tracking-widest">COMBO</span>
+           <div className="flex items-center gap-1.5">
+            <Zap className={`w-5 h-5 ${scoreMultiplier > 1 ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className="text-xl font-bold">x{scoreMultiplier.toFixed(1)}</span>
           </div>
           <Separator orientation="vertical" className="absolute right-0 h-1/2" />
         </div>
@@ -74,3 +84,5 @@ export function GameScreen({
     </div>
   );
 }
+
+    
