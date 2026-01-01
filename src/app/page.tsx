@@ -194,12 +194,24 @@ export default function Home() {
     setGameState('playing');
   }, [generateQuestion, isClient]);
 
+  const triggerHapticFeedback = (pattern: number | number[] = 100) => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {
+        // This can happen if the user has vibration disabled in their device settings.
+        console.warn('Haptic feedback failed.', e);
+      }
+    }
+  };
+
   const handleAnswer = (isCorrect: boolean) => {
     setTotalQuestions(prev => prev + 1);
     const responseTime = TIMER_SECONDS - timer;
     setTotalResponseTime(prev => prev + responseTime);
 
     if (isCorrect) {
+      triggerHapticFeedback();
       const newStreak = streak + 1;
       // Bonus points for faster answers
       const timeBonus = Math.max(0, (TIMER_SECONDS - responseTime) / 2); 
