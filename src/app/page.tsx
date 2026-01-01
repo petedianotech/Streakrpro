@@ -20,9 +20,10 @@ type Operator = '+' | 'x';
 const TIMER_SECONDS = 10;
 const PERFECT_STREAK_BONUS = 100;
 const COMBO_MULTIPLIER_THRESHOLD = 5;
-const COMBO_MULTIPLIER = 1.5;
 const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
 const INITIAL_TIME_POWER_UPS = 3;
+const QUESTIONS_PER_LEVEL = 10;
+
 
 function shuffleArray<T>(array: T[]): T[] {
   let currentIndex = array.length,  randomIndex;
@@ -63,10 +64,17 @@ export default function Home() {
 
 
   const getDifficulty = useCallback(() => {
-    if (streak >= 20) return { range: 100, operator: 'x' as Operator, level: 4 };
-    if (streak >= 15) return { range: 50, operator: '+' as Operator, level: 3 };
-    if (streak >= 10) return { range: 20, operator: '+' as Operator, level: 2 };
-    return { range: 10, operator: '+' as Operator, level: 1 };
+    const level = Math.floor(streak / QUESTIONS_PER_LEVEL);
+    switch (level) {
+      case 0: // Streak 0-9
+        return { range: 10, operator: '+' as Operator, level: 1 };
+      case 1: // Streak 10-19
+        return { range: 20, operator: '+' as Operator, level: 2 };
+      case 2: // Streak 20-29
+        return { range: 50, operator: '+' as Operator, level: 3 };
+      default: // Streak 30+
+        return { range: 12, operator: 'x' as Operator, level: 4 };
+    }
   }, [streak]);
 
   const generateQuestion = useCallback(() => {
@@ -77,14 +85,14 @@ export default function Home() {
     let correctAnswer;
     do {
       if (operator === 'x') {
-        num1 = Math.floor(Math.random() * 10) + 1; // Keep multiplication manageable
-        num2 = Math.floor(Math.random() * 10) + 1;
+        num1 = Math.floor(Math.random() * (range - 1)) + 2; // Avoid 0 and 1 for multiplication
+        num2 = Math.floor(Math.random() * (range - 1)) + 2;
       } else {
         num1 = Math.floor(Math.random() * range) + 1;
         num2 = Math.floor(Math.random() * range) + 1;
       }
       correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
-    } while (correctAnswer === 0);
+    } while (correctAnswer <= 1);
 
 
     const answers = [{ text: String(correctAnswer), correct: true }];
@@ -116,9 +124,30 @@ export default function Home() {
   }, []);
   
   useEffect(() => {
+    // This runs only once on mount, making the app client-side ready.
     setIsClient(true);
+    
+    // Load initial values from localStorage.
     setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
     setGameOverCount(Number(localStorage.getItem('gameOverCount') || '0'));
+    
+    const today = new Date().toDateString();
+    const lastPlayed = localStorage.getItem('lastPlayedDate');
+    let currentDailyStreak = Number(localStorage.getItem('dailyStreak') || '0');
+
+    if (lastPlayed) {
+      const lastPlayedDate = new Date(lastPlayed);
+      if (lastPlayedDate.toDateString() !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (lastPlayedDate.toDateString() !== yesterday.toDateString()) {
+          currentDailyStreak = 0; // Reset if they missed a day
+        }
+      }
+    } else {
+        currentDailyStreak = 0;
+    }
+    setDailyStreak(currentDailyStreak);
   }, []);
 
   useEffect(() => {
@@ -136,29 +165,6 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [gameState, timer, handleTimeout, isClient]);
 
-  useEffect(() => {
-    if (!isClient) return;
-    
-    const today = new Date().toDateString();
-    const lastPlayed = localStorage.getItem('lastPlayedDate');
-    let currentDailyStreak = Number(localStorage.getItem('dailyStreak') || '0');
-
-    if (!lastPlayed) {
-      currentDailyStreak = 0; // Will be 1 when they start a game
-    } else {
-      const lastPlayedDate = new Date(lastPlayed);
-      if (lastPlayedDate.toDateString() !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (lastPlayedDate.toDateString() !== yesterday.toDateString()) {
-          currentDailyStreak = 0; // Reset if they missed a day
-        }
-      }
-    }
-    
-    setDailyStreak(currentDailyStreak);
-    setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
-  }, [isClient]);
 
   const startGame = useCallback(() => {
     if (!isClient) return;
@@ -269,10 +275,10 @@ export default function Home() {
   
   const handleUseTimePowerUp = () => {
     if (timePowerUps > 0) {
-      setTimer(prev => prev + 2);
+      setTimer(prev => prev + 5); // Increased to 5 seconds for more impact
       setTimePowerUps(prev => prev - 1);
       toast({
-        title: "+2 Seconds!",
+        title: "+5 Seconds!",
         description: "Time added to the clock.",
       });
     }
@@ -280,7 +286,12 @@ export default function Home() {
 
   const renderContent = () => {
     if (!isClient) {
-      return <Skeleton className="w-full h-[400px]" />;
+      return (
+        <div className="w-full max-w-md mx-auto">
+          <Skeleton className="h-[96px] w-full mb-6" />
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      )
     }
     switch (gameState) {
       case 'playing':
@@ -296,6 +307,7 @@ export default function Home() {
             scoreMultiplier={scoreMultiplier}
             timePowerUps={timePowerUps}
             onUseTimePowerUp={handleUseTimePowerUp}
+            difficultyLevel={getDifficulty().level}
           />
         );
       case 'save-streak':
@@ -333,7 +345,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-body">
       <div className="w-full max-w-md mx-auto">
         {renderContent()}
       </div>

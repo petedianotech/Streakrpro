@@ -36,11 +36,9 @@ export function GameOverScreen({
           text: shareText,
           url: shareUrl,
         });
-      } catch (error: any) {
-        // Silently ignore abort errors
-        if (error.name !== 'AbortError') {
-          console.error('Error sharing:', error);
-        }
+      } catch (error) {
+        // Silently ignore errors from dismissing the share sheet.
+        console.log("Share dialog dismissed or failed", error);
       }
     } else {
       // Fallback for browsers that do not support the Web Share API
