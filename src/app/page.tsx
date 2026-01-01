@@ -22,6 +22,7 @@ const PERFECT_STREAK_BONUS = 100;
 const COMBO_MULTIPLIER_THRESHOLD = 5;
 const COMBO_MULTIPLIER = 1.5;
 const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
+const INITIAL_TIME_POWER_UPS = 3;
 
 function shuffleArray<T>(array: T[]): T[] {
   let currentIndex = array.length,  randomIndex;
@@ -51,6 +52,7 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
   const [gameOverCount, setGameOverCount] = useState(0);
+  const [timePowerUps, setTimePowerUps] = useState(INITIAL_TIME_POWER_UPS);
   const { toast } = useToast();
 
   // Session Stats
@@ -190,6 +192,7 @@ export default function Home() {
     setTotalQuestions(0);
     setCorrectAnswers(0);
     setTotalResponseTime(0);
+    setTimePowerUps(INITIAL_TIME_POWER_UPS);
     generateQuestion();
     setGameState('playing');
   }, [generateQuestion, isClient]);
@@ -263,6 +266,17 @@ export default function Home() {
     localStorage.setItem('gameOverCount', String(newGameOverCount));
     setGameState('game-over');
   };
+  
+  const handleUseTimePowerUp = () => {
+    if (timePowerUps > 0) {
+      setTimer(prev => prev + 2);
+      setTimePowerUps(prev => prev - 1);
+      toast({
+        title: "+2 Seconds!",
+        description: "Time added to the clock.",
+      });
+    }
+  };
 
   const renderContent = () => {
     if (!isClient) {
@@ -280,6 +294,8 @@ export default function Home() {
             timerProgress={(timer / TIMER_SECONDS) * 100}
             onAnswer={handleAnswer}
             scoreMultiplier={scoreMultiplier}
+            timePowerUps={timePowerUps}
+            onUseTimePowerUp={handleUseTimePowerUp}
           />
         );
       case 'save-streak':

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Flame, Star, Zap } from "lucide-react";
+import { Flame, Star, Zap, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 type GameScreenProps = {
@@ -13,6 +13,8 @@ type GameScreenProps = {
   timerProgress: number;
   onAnswer: (isCorrect: boolean) => void;
   scoreMultiplier: number;
+  timePowerUps: number;
+  onUseTimePowerUp: () => void;
 };
 
 export function GameScreen({
@@ -24,6 +26,8 @@ export function GameScreen({
   timerProgress,
   onAnswer,
   scoreMultiplier,
+  timePowerUps,
+  onUseTimePowerUp,
 }: GameScreenProps) {
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
@@ -61,8 +65,20 @@ export function GameScreen({
         </div>
       </div>
       
-      <Card className="text-center p-0 overflow-hidden shadow-2xl">
+      <Card className="text-center p-0 overflow-hidden shadow-2xl relative">
         <Progress value={timerProgress} className="h-2 rounded-none [&>div]:bg-accent" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="absolute top-4 right-4"
+          onClick={onUseTimePowerUp}
+          disabled={timePowerUps <= 0}
+        >
+          <Clock className="w-5 h-5" />
+          <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center">
+            {timePowerUps}
+          </span>
+        </Button>
         <div className="p-4 sm:p-6">
           <CardHeader>
             <p className="text-5xl md:text-6xl font-bold tracking-wider font-headline">{question}</p>
