@@ -58,6 +58,7 @@ export default function Home() {
   const [dailyStreak, setDailyStreak] = useState(0);
   const [question, setQuestion] = useState<Question | null>(null);
   const [timer, setTimer] = useState(TIMER_SECONDS);
+  const [questionStartTime, setQuestionStartTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
   const [gameOverCount, setGameOverCount] = useState(0);
@@ -141,6 +142,7 @@ export default function Home() {
       answers: shuffleArray(answers),
     });
     setTimer(TIMER_SECONDS);
+    setQuestionStartTime(Date.now());
   }, [getDifficulty]);
 
   const handleTimeout = useCallback(() => {
@@ -189,17 +191,25 @@ export default function Home() {
   useEffect(() => {
     if (gameState !== 'playing' || !isClient) return;
 
-    if (timer <= 0) {
-      handleTimeout();
-      return;
-    }
+    let animationFrameId: number;
 
-    const intervalId = setInterval(() => {
-      setTimer(prev => Math.max(0, prev - 1));
-    }, 1000);
+    const updateTimer = () => {
+        const elapsedTime = (Date.now() - questionStartTime) / 1000;
+        const newTime = TIMER_SECONDS - elapsedTime;
 
-    return () => clearInterval(intervalId);
-  }, [gameState, timer, handleTimeout, isClient]);
+        if (newTime <= 0) {
+            setTimer(0);
+            handleTimeout();
+        } else {
+            setTimer(newTime);
+            animationFrameId = requestAnimationFrame(updateTimer);
+        }
+    };
+
+    animationFrameId = requestAnimationFrame(updateTimer);
+
+    return () => cancelAnimationFrame(animationFrameId);
+}, [gameState, isClient, questionStartTime, handleTimeout]);
 
 
   const startGame = useCallback(() => {
@@ -251,8 +261,8 @@ export default function Home() {
   };
 
   const handleAnswer = (isCorrect: boolean) => {
-    setTotalQuestions(prev => prev + 1);
     const responseTime = TIMER_SECONDS - timer;
+    setTotalQuestions(prev => prev + 1);
     setTotalResponseTime(prev => prev + responseTime);
 
     if (isCorrect) {
@@ -308,7 +318,7 @@ export default function Home() {
   
   const handleUseTimePowerUp = () => {
     if (timePowerUps > 0) {
-      setTimer(prev => prev + 5); // Increased to 5 seconds for more impact
+      setQuestionStartTime(prev => prev + 5000);
       setTimePowerUps(prev => prev - 1);
       toast({
         title: "+5 Seconds!",
