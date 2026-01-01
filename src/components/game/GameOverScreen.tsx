@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Award, Target, Timer } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Award, Share2, Target, Timer } from "lucide-react";
 
 type GameOverScreenProps = {
   finalScore: number;
@@ -22,6 +23,41 @@ export function GameOverScreen({
   accuracy,
   avgResponseTime 
 }: GameOverScreenProps) {
+  const { toast } = useToast();
+
+  const handleShare = async () => {
+    const shareText = `I scored ${finalScore} with a ${finalStreak} streak in Streakrpro! Can you beat me?`;
+    const shareUrl = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Streakrpro Challenge!',
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    } else {
+      // Fallback for browsers that do not support the Web Share API
+      try {
+        await navigator.clipboard.writeText(`${shareText} Play here: ${shareUrl}`);
+        toast({
+          title: "Copied to clipboard!",
+          description: "Your score has been copied. Share it with your friends!",
+        });
+      } catch (error) {
+        console.error('Error copying to clipboard:', error);
+        toast({
+          variant: "destructive",
+          title: "Oops!",
+          description: "Could not copy score to clipboard.",
+        });
+      }
+    }
+  };
+
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
       <CardHeader>
@@ -66,9 +102,12 @@ export function GameOverScreen({
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col sm:flex-row gap-2">
         <Button onClick={onPlayAgain} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
           Play Again
+        </Button>
+        <Button onClick={handleShare} size="lg" variant="outline" className="w-full sm:w-auto">
+          <Share2 className="mr-2" /> Share
         </Button>
       </CardFooter>
     </Card>

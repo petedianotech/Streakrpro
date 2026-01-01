@@ -24,10 +24,20 @@ const COMBO_MULTIPLIER = 1.5;
 const INTERSTITIAL_AD_FREQUENCY = 2; // Show ad every 2 game overs
 
 function shuffleArray<T>(array: T[]): T[] {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+  let currentIndex = array.length,  randomIndex;
+
+  // While there remain elements to shuffle.
+  while (currentIndex != 0) {
+
+    // Pick a remaining element.
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
   }
+
   return array;
 }
 
@@ -61,23 +71,29 @@ export default function Home() {
     const { range, operator } = getDifficulty();
     
     let num1, num2;
-    if (operator === 'x') {
-      num1 = Math.floor(Math.random() * 10) + 1; // Keep multiplication manageable
-      num2 = Math.floor(Math.random() * 10) + 1;
-    } else {
-      num1 = Math.floor(Math.random() * range) + 1;
-      num2 = Math.floor(Math.random() * range) + 1;
-    }
+    // Use a while loop to ensure we get a non-trivial question
+    let correctAnswer;
+    do {
+      if (operator === 'x') {
+        num1 = Math.floor(Math.random() * 10) + 1; // Keep multiplication manageable
+        num2 = Math.floor(Math.random() * 10) + 1;
+      } else {
+        num1 = Math.floor(Math.random() * range) + 1;
+        num2 = Math.floor(Math.random() * range) + 1;
+      }
+      correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
+    } while (correctAnswer === 0);
 
-    const correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
+
     const answers = [{ text: String(correctAnswer), correct: true }];
 
     while (answers.length < 4) {
-      const incorrectOffset = Math.floor(Math.random() * (range / 2)) - (range / 4);
-      if (incorrectOffset === 0 && correctAnswer !== 0) continue;
+      const incorrectOffset = Math.floor(Math.random() * 10) - 5;
+      if (incorrectOffset === 0) continue;
       
       let incorrectAnswer = correctAnswer + incorrectOffset;
-      if (incorrectAnswer < 0) incorrectAnswer = Math.abs(incorrectAnswer) + 1; // Ensure positive
+      if (incorrectAnswer <= 0) incorrectAnswer = correctAnswer + Math.abs(incorrectOffset) + 1;
+      
       incorrectAnswer = Math.round(incorrectAnswer);
 
       if (incorrectAnswer !== correctAnswer && !answers.some(a => a.text === String(incorrectAnswer))) {
@@ -100,6 +116,7 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
+    setGameOverCount(Number(localStorage.getItem('gameOverCount') || '0'));
   }, []);
 
   useEffect(() => {
@@ -179,17 +196,25 @@ export default function Home() {
 
   const handleAnswer = (isCorrect: boolean) => {
     setTotalQuestions(prev => prev + 1);
-    setTotalResponseTime(prev => prev + (TIMER_SECONDS - timer));
+    const responseTime = TIMER_SECONDS - timer;
+    setTotalResponseTime(prev => prev + responseTime);
 
     if (isCorrect) {
       const newStreak = streak + 1;
-      const points = Math.round(10 * scoreMultiplier);
+      // Bonus points for faster answers
+      const timeBonus = Math.max(0, (TIMER_SECONDS - responseTime) / 2); 
+      const points = Math.round((10 + timeBonus) * scoreMultiplier);
       let newScore = score + points;
 
       setStreak(newStreak);
       setCorrectAnswers(prev => prev + 1);
 
-      if (newStreak % PERFECT_STREAK_BONUS === 0 && newStreak > 0) {
+      if (newStreak > bestStreak) {
+        setBestStreak(newStreak);
+        localStorage.setItem('bestStreak', String(newStreak));
+      }
+
+      if (newStreak % 10 === 0 && newStreak > 0) {
         newScore += PERFECT_STREAK_BONUS;
         toast({
           title: "Perfect Streak!",
@@ -197,8 +222,8 @@ export default function Home() {
         });
       }
       
-      if (newStreak % COMBO_MULTIPLIER_THRESHOLD === 0 && newStreak > 0) {
-        const newMultiplier = scoreMultiplier * COMBO_MULTIPLIER;
+      if (newStreak > 0 && newStreak % COMBO_MULTIPLIER_THRESHOLD === 0) {
+        const newMultiplier = scoreMultiplier + 0.5;
         setScoreMultiplier(newMultiplier);
         toast({
           title: "Combo x" + newMultiplier.toFixed(1) + "!",
@@ -221,11 +246,9 @@ export default function Home() {
   };
 
   const handleEndGame = () => {
-    if (streak > bestStreak) {
-      setBestStreak(streak);
-      localStorage.setItem('bestStreak', String(streak));
-    }
-    setGameOverCount(prev => prev + 1);
+    const newGameOverCount = gameOverCount + 1;
+    setGameOverCount(newGameOverCount);
+    localStorage.setItem('gameOverCount', String(newGameOverCount));
     setGameState('game-over');
   };
 
@@ -263,7 +286,7 @@ export default function Home() {
             finalScore={score}
             finalStreak={streak}
             onPlayAgain={startGame}
-            showAd={gameOverCount % INTERSTITIAL_AD_FREQUENCY === 0}
+            showAd={(gameOverCount-1) % INTERSTITIAL_AD_FREQUENCY === 0 && gameOverCount > 1}
             bestStreak={bestStreak}
             accuracy={accuracy}
             avgResponseTime={avgResponseTime}
