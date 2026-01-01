@@ -36,8 +36,11 @@ export function GameOverScreen({
           text: shareText,
           url: shareUrl,
         });
-      } catch (error) {
-        console.error('Error sharing:', error);
+      } catch (error: any) {
+        // Silently ignore abort errors
+        if (error.name !== 'AbortError') {
+          console.error('Error sharing:', error);
+        }
       }
     } else {
       // Fallback for browsers that do not support the Web Share API
