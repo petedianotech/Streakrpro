@@ -1,0 +1,124 @@
+/**
+ * Core Philosophy: This ruleset establishes a security model with three distinct access patterns.
+ * User data is strictly private and owner-only. The global leaderboard is publicly readable but
+ * entries can only be created, modified, or deleted by their owner. Daily challenges are
+ * publicly readable by any authenticated user but are read-only to prevent tampering by clients.
+ *
+ * Data Structure: The data is organized into three top-level collections:
+ * 1. /users/{userId}: Contains private user profile information.
+ * 2. /leaderboard/{leaderboardEntryId}: A global collection for public scores.
+ * 3. /daily_challenges/{dailyChallengeId}: A global collection for daily challenges.
+ *
+ * Key Security Decisions:
+ * - User Listing Disabled: The `/users` collection cannot be listed to protect user privacy.
+ * - Ownership Enforcement: Writes to `/users` and `/leaderboard` collections are strictly
+ *   controlled by checking the authenticated user's UID against an ownership field.
+ * - Read-Only Global Data: The `/daily_challenges` collection is read-only for clients.
+ *   This assumes challenges are managed via a trusted server environment or the Firebase Console,
+ *   which is a secure default when creator roles are not defined.
+ *
+ * Denormalization for Authorization: The rules rely on the 'userId' field being denormalized
+ * onto each `LeaderboardEntry` document. This allows for fast and inexpensive security checks
+ * on write operations without needing to perform extra `get()` calls to other documents,
+ * enforcing the principle of Authorization Independence.
+ *
+ * Structural Segregation: The use of separate top-level collections for user-specific data
+ * (`/users`), public-read/owner-write data (`/leaderboard`), and public-read-only data
+ * (`/daily_challenges`) creates a clear and secure separation of concerns. This is inherently
+ * more performant and secure for list operations than a single collection with role flags.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user's UID matches the provided userId.
+     * Used for ownership validation.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if a document exists AND the authenticated user is the owner.
+     * Prevents modification or deletion of non-existent documents.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates that the user ID in the document data matches the user's auth UID on create.
+     */
+    function createdByOwner() {
+      return isOwner(request.resource.data.userId);
+    }
+
+    /**
+     * Ensures the userId field cannot be changed after creation.
+     */
+    function ownerIsImmutable() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+    // ----------------------------------------------------------------------
+    // Collection Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Secures the user's private profile document. Only the user can create, read, or write their own data.
+     * @path /users/{userId}
+     * @allow A logged-in user (auth.uid='user123') can (create) their own document at /users/user123.
+     * @deny An anonymous user cannot (get) any user document.
+     * @deny A logged-in user (auth.uid='user123') cannot (update) another user's document at /users/user456.
+     * @principle Restricts access to a user's own data tree and prevents enumeration of all users.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // CRITICAL: Prevent listing all users in the database.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages entries on the global leaderboard. Anyone can read, but only the owner can write their own entry.
+     * @path /leaderboard/{leaderboardEntryId}
+     * @allow An authenticated user can (list) all documents in the /leaderboard collection.
+     * @allow A logged-in user (auth.uid='user123') can (create) a new entry where the `userId` field is 'user123'.
+     * @deny A logged-in user (auth.uid='user123') cannot (update) an entry owned by 'user456'.
+     * @principle Implements a "Public Read with Owner-Only Writes" pattern using a denormalized ownership field.
+     */
+    match /leaderboard/{leaderboardEntryId} {
+      allow get, list: if isSignedIn();
+      allow create: if createdByOwner();
+      allow update: if isExistingOwner(resource.data.userId) && ownerIsImmutable();
+      allow delete: if isExistingOwner(resource.data.userId);
+    }
+
+    /**
+     * @description Defines access for daily challenges. These are public to all authenticated users but cannot be modified.
+     * @path /daily_challenges/{dailyChallengeId}
+     * @allow Any authenticated user can (get) or (list) the daily challenges.
+     * @deny Any user, authenticated or not, cannot (create), (update), or (delete) a daily challenge.
+     * @principle Secures global configuration data by making it read-only for clients, assuming writes are handled by a trusted backend.
+     */
+    match /daily_challenges/{dailyChallengeId} {
+      allow get, list: if isSignedIn();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
