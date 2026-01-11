@@ -9,7 +9,7 @@ import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection, query, where, getDocs, orderBy, limit, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
@@ -156,39 +156,51 @@ export default function Home() {
   }, [getDifficultySettings]);
   
 const handleSaveScoreToLeaderboard = useCallback(async () => {
-    if (!user || user.isAnonymous || !user.displayName || score <= 0 || !firestore || !userDocRef) {
+    if (!user || user.isAnonymous || !user.displayName || score <= 0 || !firestore) {
       return;
     }
+    
+    const leaderboardRef = doc(firestore, 'leaderboard', user.uid);
+    const userRef = doc(firestore, 'users', user.uid);
 
-    // Use the user's best score from their profile, which is more reliable
-    const currentBestScore = userData?.stats?.bestScore ?? 0;
+    try {
+        const leaderboardDoc = await getDoc(leaderboardRef);
 
-    if (score > currentBestScore) {
-      // This is a new personal best score, let's save it.
-      const leaderboardId = user.uid; // Use user's UID as the document ID
-      const leaderboardRef = doc(firestore, 'leaderboard', leaderboardId);
-      
-      // Use set with merge to create or update the user's single leaderboard entry
-      addDocumentNonBlocking(collection(firestore, 'leaderboard'), {
-        userId: user.uid,
-        username: user.displayName,
-        score: score,
-        streak: streak,
-        timestamp: serverTimestamp(),
-      });
-      
-      toast({
-        title: 'New High Score!',
-        description: 'Your score has been updated on the leaderboard.',
-      });
+        const currentBestScore = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
 
-      // Also update the bestScore in the user's profile stats
-      await updateDoc(userDocRef, {
-        'stats.bestScore': score
-      });
+        if (score > currentBestScore) {
+            const batch = writeBatch(firestore);
 
+            const leaderboardData = {
+                userId: user.uid,
+                username: user.displayName,
+                score: score,
+                streak: streak,
+                timestamp: serverTimestamp(),
+            };
+
+            batch.set(leaderboardRef, leaderboardData, { merge: true });
+            
+            // Also update the bestScore in the user's profile stats for consistency
+            batch.set(userRef, {
+                stats: {
+                    bestScore: score
+                }
+            }, { merge: true });
+
+            await batch.commit();
+
+            toast({
+                title: 'New High Score!',
+                description: 'Your score has been updated on the leaderboard.',
+            });
+        }
+    } catch (error) {
+        console.error("Error saving score to leaderboard: ", error);
+        // We can choose to show a toast here, but it might be noisy.
+        // For now, we'll log the error.
     }
-  }, [user, firestore, score, streak, toast, userDocRef, userData]);
+}, [user, firestore, score, streak, toast]);
 
 
     const handleSaveGameStats = useCallback(async () => {
@@ -511,7 +523,7 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
         return (
           <GameOverScreen
             finalScore={score}
-            finalStreak={streak}
+            finalStreak={finalStreak}
             onPlayAgain={startGame}
             bestStreak={bestStreak}
             accuracy={accuracy}
@@ -545,4 +557,3 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
   );
 }
 
-    
