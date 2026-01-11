@@ -1,20 +1,22 @@
 
 /**
- * Core Philosophy: This ruleset establishes a security model with four distinct access patterns.
+ * Core Philosophy: This ruleset establishes a security model with five distinct access patterns.
  * User data is strictly private and owner-only. The global leaderboard is publicly readable but
  * entries can only be created by their owner. Daily challenges are publicly readable by any
  * authenticated user but are read-only. A dedicated `usernames` collection enforces unique
- * usernames across the application by using the username itself as the document ID.
+ * usernames across the application by using the username itself as the document ID. A `gameHistory`
+ * subcollection under each user is owner-only for both reads and writes.
  *
- * Data Structure: The data is organized into four top-level collections:
- * 1. /users/{userId}: Contains private user profile information.
- * 2. /leaderboard/{leaderboardEntryId}: A global collection for public scores.
- * 3. /daily_challenges/{dailyChallengeId}: A global collection for daily challenges.
- * 4. /usernames/{username}: A collection where document IDs are lowercase usernames, used for uniqueness checks.
+ * Data Structure: The data is organized into four top-level collections and one subcollection:
+ * 1. /users/{userId}: Contains private user profile information and lifetime stats.
+ * 2. /users/{userId}/gameHistory/{gameId}: A private history of each game played by the user.
+ * 3. /leaderboard/{leaderboardEntryId}: A global collection for public scores.
+ * 4. /daily_challenges/{dailyChallengeId}: A global collection for daily challenges.
+ * 5. /usernames/{username}: A collection where document IDs are lowercase usernames, used for uniqueness checks.
  *
  * Key Security Decisions:
  * - User Listing Disabled: The `/users` collection cannot be listed to protect user privacy.
- * - Ownership Enforcement: Writes to `/users`, `/leaderboard`, and `/usernames` collections are strictly
+ * - Ownership Enforcement: Writes to `/users`, `/leaderboard`, `/usernames`, and `gameHistory` collections are strictly
  *   controlled by checking the authenticated user's UID.
  * - Username Uniqueness: A user can only create a document in `/usernames` if it doesn't already exist.
  *   This is the core mechanism for reserving a unique username. Deletion is also owner-only.
@@ -22,7 +24,7 @@
  * - Google Sign-In: Users can be created with Google, which may pre-fill their username.
  *
  * Denormalization for Authorization: The rules rely on the 'userId' field being denormalized
- * onto each `LeaderboardEntry` and `Username` document. This allows for fast and inexpensive security checks
+ * onto each `LeaderboardEntry`, `Username`, and `GameHistory` document. This allows for fast and inexpensive security checks
  * on write operations without needing to perform extra `get()` calls, enforcing Authorization Independence.
  */
 rules_version = '2';
@@ -81,8 +83,17 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
-      allow create: if createdByOwner();
+      allow create: if isOwner(userId);
       allow list: if false; // CRITICAL: Prevent listing all users.
+
+      /**
+       * @description Secures the user's private game history.
+       * @path /users/{userId}/gameHistory/{gameId}
+       */
+      match /gameHistory/{gameId} {
+        allow get, list, create: if isOwner(userId);
+        allow update, delete: if false; // Game history is immutable.
+      }
     }
 
     /**
@@ -119,5 +130,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
