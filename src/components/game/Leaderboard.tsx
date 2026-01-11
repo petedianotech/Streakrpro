@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCollection, useMemoFirebase } from '@/firebase';
@@ -11,9 +12,9 @@ import { Card } from '../ui/card';
 type LeaderboardEntry = {
   id: string;
   username: string;
-  score: number;
-  streak: number;
-  timestamp: {
+  totalBestScore: number;
+  bestStreak: number;
+  lastUpdated: {
     seconds: number;
     nanoseconds: number;
   };
@@ -26,7 +27,7 @@ export function Leaderboard() {
     if (!firestore) return null;
     return query(
       collection(firestore, 'leaderboard'),
-      orderBy('score', 'desc'),
+      orderBy('totalBestScore', 'desc'),
       limit(20)
     );
   }, [firestore]);
@@ -66,8 +67,8 @@ export function Leaderboard() {
           <TableRow>
             <TableHead className="w-[50px] text-center">Rank</TableHead>
             <TableHead>Player</TableHead>
-            <TableHead className="text-right">Score</TableHead>
-            <TableHead className="text-right">Streak</TableHead>
+            <TableHead className="text-right">Total Score</TableHead>
+            <TableHead className="text-right">Best Streak</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -77,11 +78,11 @@ export function Leaderboard() {
               <TableCell className="font-medium">{entry.username}</TableCell>
               <TableCell className="text-right flex items-center justify-end gap-2">
                 <Star className="w-4 h-4 text-primary" />
-                {entry.score}
+                {entry.totalBestScore}
               </TableCell>
               <TableCell className="text-right flex items-center justify-end gap-2">
                 <Flame className="w-4 h-4 text-accent" />
-                {entry.streak}
+                {entry.bestStreak}
               </TableCell>
             </TableRow>
           ))}

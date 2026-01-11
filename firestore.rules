@@ -2,7 +2,7 @@
 /**
  * Core Philosophy: This ruleset establishes a security model with five distinct access patterns.
  * User data is strictly private and owner-only. The global leaderboard is publicly readable but
- * entries can only be created by their owner. Daily challenges are publicly readable by any
+ * entries can only be created or updated by their owner. Daily challenges are publicly readable by any
  * authenticated user but are read-only. A dedicated `usernames` collection enforces unique
  * usernames across the application by using the username itself as the document ID. A `gameHistory`
  * subcollection under each user is owner-only for both reads and writes.
@@ -10,7 +10,7 @@
  * Data Structure: The data is organized into four top-level collections and one subcollection:
  * 1. /users/{userId}: Contains private user profile information and lifetime stats.
  * 2. /users/{userId}/gameHistory/{gameId}: A private history of each game played by the user.
- * 3. /leaderboard/{leaderboardEntryId}: A global collection for public scores.
+ * 3. /leaderboard/{userId}: A global collection where each document represents a user's best scores.
  * 4. /daily_challenges/{dailyChallengeId}: A global collection for daily challenges.
  * 5. /usernames/{username}: A collection where document IDs are lowercase usernames, used for uniqueness checks.
  *
@@ -21,11 +21,12 @@
  * - Username Uniqueness: A user can only create a document in `/usernames` if it doesn't already exist.
  *   This is the core mechanism for reserving a unique username. Deletion is also owner-only.
  * - Read-Only Global Data: The `/daily_challenges` collection is read-only for clients.
- * - Google Sign-In: Users can be created with Google, which may pre-fill their username.
+ * - Leaderboard Integrity: A user can only write to their own document in the leaderboard collection.
  *
  * Denormalization for Authorization: The rules rely on the 'userId' field being denormalized
- * onto each `LeaderboardEntry`, `Username`, and `GameHistory` document. This allows for fast and inexpensive security checks
- * on write operations without needing to perform extra `get()` calls, enforcing Authorization Independence.
+ * onto each `Username` and `GameHistory` document. The leaderboard uses the user's UID as the document ID.
+ * This allows for fast and inexpensive security checks on write operations without needing to perform extra `get()` calls,
+ * enforcing Authorization Independence.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -97,13 +98,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages entries on the global leaderboard.
-     * @path /leaderboard/{leaderboardEntryId}
+     * @description Manages entries on the global leaderboard. Doc ID is User ID.
+     * @path /leaderboard/{userId}
      */
-    match /leaderboard/{leaderboardEntryId} {
+    match /leaderboard/{userId} {
       allow get, list: if isSignedIn();
-      allow create: if createdByOwner() && request.resource.data.username != null;
-      allow update, delete: if false; // Leaderboard entries are immutable.
+      // A user can create or update their own leaderboard entry.
+      allow write: if isOwner(userId);
     }
 
     /**

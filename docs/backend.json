@@ -5,41 +5,47 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "LeaderboardEntry",
       "type": "object",
-      "description": "Represents a single entry in the global leaderboard.",
+      "description": "Represents a single entry in the global leaderboard. The document ID is the user's UID.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the leaderboard entry."
-        },
         "userId": {
           "type": "string",
-          "description": "Reference to the User entity. (Relationship: User 1:N LeaderboardEntry)"
+          "description": "The UID of the user."
         },
         "username": {
           "type": "string",
-          "description": "The user's username at the time of posting."
+          "description": "The user's current username."
         },
-        "score": {
+        "scores": {
+          "type": "object",
+          "description": "Object containing the user's best score for each difficulty.",
+          "properties": {
+            "easy": { "type": "number" },
+            "medium": { "type": "number" },
+            "dynamic": { "type": "number" }
+          },
+          "required": ["easy", "medium", "dynamic"]
+        },
+        "totalBestScore": {
           "type": "number",
-          "description": "The user's score for this leaderboard entry."
+          "description": "The sum of the user's best scores across all difficulties. Used for primary sorting."
         },
-        "streak": {
-          "type": "number",
-          "description": "The user's streak for this leaderboard entry."
+        "bestStreak": {
+            "type": "number",
+            "description": "The user's absolute best streak across all games and difficulties."
         },
-        "timestamp": {
+        "lastUpdated": {
           "type": "string",
-          "description": "The timestamp when the leaderboard entry was created.",
+          "description": "The timestamp when the leaderboard entry was last updated.",
           "format": "date-time"
         }
       },
       "required": [
-        "id",
         "userId",
         "username",
-        "score",
-        "streak",
-        "timestamp"
+        "scores",
+        "totalBestScore",
+        "bestStreak",
+        "lastUpdated"
       ]
     },
     "User": {
@@ -180,17 +186,17 @@
   "firestore": {
     "structure": [
       {
-        "path": "/leaderboard/{leaderboardEntryId}",
+        "path": "/leaderboard/{userId}",
         "definition": {
           "entityName": "LeaderboardEntry",
           "schema": {
             "$ref": "#/backend/entities/LeaderboardEntry"
           },
-          "description": "Represents a single entry in the global leaderboard. Includes denormalized 'userId' and 'username' for authorization and display.",
+          "description": "Represents a single user's entry in the global leaderboard, containing their best scores per difficulty. The document ID is the user's UID.",
           "params": [
             {
-              "name": "leaderboardEntryId",
-              "description": "Unique identifier for the leaderboard entry."
+              "name": "userId",
+              "description": "The UID of the user."
             }
           ]
         }
@@ -267,5 +273,3 @@
     "reasoning": "The Firestore data structure is designed to support the core features of the Streakrpro app, focusing on leaderboards, daily challenges, and user data, while adhering to the principles of Authorization Independence, Clarity of Intent, and DBAC.  The structure uses path-based ownership for user-specific data and a global collection for the leaderboard. A new `/usernames` collection is added to enforce username uniqueness, which is a critical requirement. Daily challenges are stored in a dedicated collection, allowing for easy querying and management.\n\n*   **Authorization Independence:** User-specific data (e.g., `dailyChallengeCompletions`) is stored under the `/users/{userId}` path, ensuring clear ownership. Leaderboard entries include the `userId`, eliminating the need for `get()` calls in security rules to verify ownership. The denormalization strategy avoids hierarchical authorization dependencies, enabling atomic operations.\n*   **Clarity of Intent:** The structure clearly separates user data, leaderboard data, username reservations, and daily challenge data into distinct collections.  The naming conventions are explicit, making the purpose of each collection and field clear.\n*   **Username Uniqueness**: A new top-level collection `/usernames/{username}` is introduced. The document ID is the lowercase version of the username. This allows for an atomic `create` operation to reserve a username, which will fail if the document already exists, thus enforcing uniqueness at the database level. The security rules will ensure that only the correct user can create or delete their own username document.\n*   **Player Statistics**: The User entity now includes a `stats` object to store lifetime gameplay metrics. A new subcollection, `gameHistory`, is added under each user to store a record of each game played, enabling historical data analysis and visualization.\n\n*   **QAPs (Rules are not Filters):** The structure supports secure `list` operations.  Listing leaderboard entries does not require filtering based on user roles or permissions, as it's a global collection. Listing daily challenges is also straightforward.  User-specific data is accessed via path-based ownership, ensuring that only the user can access their own data.\n\nThis design promotes security, scalability, and debuggability, aligning with the core design principles and strategy mandates."
   }
 }
-
-    

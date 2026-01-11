@@ -164,43 +164,58 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
     const userRef = doc(firestore, 'users', user.uid);
 
     try {
-        const leaderboardDoc = await getDoc(leaderboardRef);
+        await runTransaction(firestore, async (transaction) => {
+            const leaderboardDoc = await transaction.get(leaderboardRef);
 
-        const currentBestScore = leaderboardDoc.exists() ? leaderboardDoc.data().score : 0;
+            const defaultScores = { easy: 0, medium: 0, dynamic: 0 };
+            const currentScores = leaderboardDoc.exists() ? (leaderboardDoc.data().scores || defaultScores) : defaultScores;
+            const currentBestStreak = leaderboardDoc.exists() ? (leaderboardDoc.data().bestStreak || 0) : 0;
 
-        if (score > currentBestScore) {
-            const batch = writeBatch(firestore);
+            // Only update if the new score for the current difficulty is better
+            if (score > (currentScores[difficulty] || 0)) {
+                const newScores = { ...currentScores, [difficulty]: score };
+                const totalBestScore = Object.values(newScores).reduce((sum, s) => sum + s, 0);
+                const newBestStreak = Math.max(currentBestStreak, streak);
 
-            const leaderboardData = {
-                userId: user.uid,
-                username: user.displayName,
-                score: score,
-                streak: streak,
-                timestamp: serverTimestamp(),
-            };
+                const leaderboardData = {
+                    userId: user.uid,
+                    username: user.displayName,
+                    scores: newScores,
+                    totalBestScore: totalBestScore,
+                    bestStreak: newBestStreak,
+                    lastUpdated: serverTimestamp(),
+                };
 
-            batch.set(leaderboardRef, leaderboardData, { merge: true });
-            
-            // Also update the bestScore in the user's profile stats for consistency
-            batch.set(userRef, {
-                stats: {
-                    bestScore: score
-                }
-            }, { merge: true });
+                transaction.set(leaderboardRef, leaderboardData, { merge: true });
 
-            await batch.commit();
+                const overallBestScore = Math.max(
+                    leaderboardDoc.exists() ? (leaderboardDoc.data().totalBestScore || 0) : 0,
+                    totalBestScore
+                );
 
-            toast({
-                title: 'New High Score!',
-                description: 'Your score has been updated on the leaderboard.',
-            });
-        }
+                // Also update the bestScore in the user's profile stats for consistency
+                transaction.set(userRef, {
+                    stats: {
+                        bestScore: overallBestScore,
+                        bestStreak: newBestStreak
+                    }
+                }, { merge: true });
+
+                 toast({
+                    title: 'New High Score!',
+                    description: `Your new high score for ${difficulty} mode has been saved.`,
+                });
+            }
+        });
     } catch (error) {
         console.error("Error saving score to leaderboard: ", error);
-        // We can choose to show a toast here, but it might be noisy.
-        // For now, we'll log the error.
+        toast({
+            variant: "destructive",
+            title: "Leaderboard Error",
+            description: "Could not save your score to the leaderboard."
+        });
     }
-}, [user, firestore, score, streak, toast]);
+}, [user, firestore, score, streak, difficulty, toast]);
 
 
     const handleSaveGameStats = useCallback(async () => {
