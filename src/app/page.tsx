@@ -9,7 +9,7 @@ import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection, query, where, getDocs, orderBy, limit, writeBatch } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
@@ -69,7 +69,7 @@ export default function Home() {
   const [todayChallenge, setTodayChallenge] = useState<DailyChallenge | null>(null);
 
   const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-  const { data: userData } = useDoc<{ dailyChallengeCompletions: string[] }>(userDocRef);
+  const { data: userData } = useDoc<{ dailyChallengeCompletions: string[], stats?: { bestScore?: number } }>(userDocRef);
 
 
   // Session Stats
@@ -155,46 +155,40 @@ export default function Home() {
     setQuestionStartTime(Date.now());
   }, [getDifficultySettings]);
   
-  const handleSaveScoreToLeaderboard = useCallback(async () => {
-    if (!user || user.isAnonymous || !user.displayName || score <= 0 || !firestore) {
+const handleSaveScoreToLeaderboard = useCallback(async () => {
+    if (!user || user.isAnonymous || !user.displayName || score <= 0 || !firestore || !userDocRef) {
       return;
     }
 
-    const leaderboardRef = collection(firestore, 'leaderboard');
-    const userScoresQuery = query(
-      leaderboardRef,
-      where('userId', '==', user.uid),
-      orderBy('score', 'desc'),
-      limit(1)
-    );
+    // Use the user's best score from their profile, which is more reliable
+    const currentBestScore = userData?.stats?.bestScore ?? 0;
 
-    try {
-      const userScoresSnapshot = await getDocs(userScoresQuery);
-      const bestScoreDoc = userScoresSnapshot.docs[0];
-
-      if (!bestScoreDoc || score > (bestScoreDoc.data().score || 0)) {
-        // This is a new personal best, save it.
-        addDocumentNonBlocking(leaderboardRef, {
-          userId: user.uid,
-          username: user.displayName,
-          score: score,
-          streak: streak,
-          timestamp: serverTimestamp(),
-        });
-        toast({
-          title: 'New High Score!',
-          description: 'Your new score has been added to the leaderboard.',
-        });
-      }
-    } catch (error) {
-      console.error("Error saving score to leaderboard: ", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not save your score. Please try again.',
+    if (score > currentBestScore) {
+      // This is a new personal best score, let's save it.
+      const leaderboardId = user.uid; // Use user's UID as the document ID
+      const leaderboardRef = doc(firestore, 'leaderboard', leaderboardId);
+      
+      // Use set with merge to create or update the user's single leaderboard entry
+      addDocumentNonBlocking(collection(firestore, 'leaderboard'), {
+        userId: user.uid,
+        username: user.displayName,
+        score: score,
+        streak: streak,
+        timestamp: serverTimestamp(),
       });
+      
+      toast({
+        title: 'New High Score!',
+        description: 'Your score has been updated on the leaderboard.',
+      });
+
+      // Also update the bestScore in the user's profile stats
+      await updateDoc(userDocRef, {
+        'stats.bestScore': score
+      });
+
     }
-  }, [user, firestore, score, streak, toast]);
+  }, [user, firestore, score, streak, toast, userDocRef, userData]);
 
 
     const handleSaveGameStats = useCallback(async () => {
@@ -224,11 +218,13 @@ export default function Home() {
                     totalScore: 0,
                     gamesPlayed: 0,
                     bestStreak: 0,
+                    bestScore: 0,
                 };
 
                 const newGamesPlayed = (currentStats.gamesPlayed || 0) + 1;
                 const newTotalScore = (currentStats.totalScore || 0) + score;
                 const newBestStreak = Math.max(currentStats.bestStreak || 0, streak);
+                const newBestScore = Math.max(currentStats.bestScore || 0, score);
                 const newAverageScore = newTotalScore / newGamesPlayed;
 
                 transaction.set(userRef, {
@@ -236,6 +232,7 @@ export default function Home() {
                         totalScore: newTotalScore,
                         gamesPlayed: newGamesPlayed,
                         bestStreak: newBestStreak,
+                        bestScore: newBestScore,
                         averageScore: newAverageScore,
                     }
                 }, { merge: true });
@@ -547,3 +544,5 @@ export default function Home() {
     </main>
   );
 }
+
+    

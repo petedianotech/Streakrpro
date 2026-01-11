@@ -34,6 +34,7 @@ type UserData = {
         totalScore: number;
         gamesPlayed: number;
         bestStreak: number;
+        bestScore: number;
         averageScore: number;
     }
 }
@@ -235,7 +236,7 @@ export default function ProfilePage() {
         <h1 className="text-4xl font-bold font-headline">Your Profile & Stats</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard icon={<Star />} label="Total Score" value={stats?.totalScore?.toLocaleString() ?? 0} isLoading={isStatsLoading} />
+            <StatCard icon={<Star />} label="Best Score" value={stats?.bestScore?.toLocaleString() ?? 0} isLoading={isStatsLoading} />
             <StatCard icon={<Trophy />} label="Best Streak" value={stats?.bestStreak ?? 0} isLoading={isStatsLoading} />
             <StatCard icon={<Target />} label="Avg. Score" value={stats?.averageScore?.toFixed(0) ?? 0} isLoading={isStatsLoading} />
         </div>
@@ -310,8 +311,7 @@ export default function ProfilePage() {
                   {providerId === 'password' ? (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="password-confirm">Password (if remembered)</Label>
-                        <Input
+                        <Label htmlFor="password-confirm">Password (if remembered)</Label>                        <Input
                           id="password-confirm"
                           type="password"
                           value={password}
@@ -361,3 +361,5 @@ export default function ProfilePage() {
     </main>
   );
 }
+
+    

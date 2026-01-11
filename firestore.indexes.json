@@ -1,0 +1,42 @@
+
+{
+  "indexes": [
+    {
+      "collectionGroup": "leaderboard",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "score",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "daily_challenges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "gameHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
+
+    
