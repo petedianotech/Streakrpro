@@ -9,7 +9,7 @@ import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection, query, where, getDocs, orderBy, limit, addDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
@@ -156,20 +156,46 @@ export default function Home() {
   }, [getDifficultySettings]);
   
   const handleSaveScoreToLeaderboard = useCallback(async () => {
-    if (user && !user.isAnonymous && user.displayName && score > 0) {
-      addDocumentNonBlocking(collection(firestore, 'leaderboard'), {
-        userId: user.uid,
-        username: user.displayName,
-        score: score,
-        streak: streak,
-        timestamp: serverTimestamp(),
-      });
+    if (!user || user.isAnonymous || !user.displayName || score <= 0 || !firestore) {
+      return;
+    }
+
+    const leaderboardRef = collection(firestore, 'leaderboard');
+    const userScoresQuery = query(
+      leaderboardRef,
+      where('userId', '==', user.uid),
+      orderBy('score', 'desc'),
+      limit(1)
+    );
+
+    try {
+      const userScoresSnapshot = await getDocs(userScoresQuery);
+      const bestScoreDoc = userScoresSnapshot.docs[0];
+
+      if (!bestScoreDoc || score > (bestScoreDoc.data().score || 0)) {
+        // This is a new personal best, save it.
+        addDocumentNonBlocking(leaderboardRef, {
+          userId: user.uid,
+          username: user.displayName,
+          score: score,
+          streak: streak,
+          timestamp: serverTimestamp(),
+        });
+        toast({
+          title: 'New High Score!',
+          description: 'Your new score has been added to the leaderboard.',
+        });
+      }
+    } catch (error) {
+      console.error("Error saving score to leaderboard: ", error);
       toast({
-        title: 'Score Saved!',
-        description: 'Your new score has been added to the leaderboard.',
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not save your score. Please try again.',
       });
     }
   }, [user, firestore, score, streak, toast]);
+
 
     const handleSaveGameStats = useCallback(async () => {
         if (!user || user.isAnonymous || !firestore) return;
