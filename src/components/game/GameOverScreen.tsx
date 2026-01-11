@@ -7,7 +7,7 @@ import { Award, Share2, Target, Timer, Trophy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useDoc } from "@/firebase";
+import { useDoc, useMemoFirebase } from "@/firebase";
 import { doc, DocumentReference } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { User } from "firebase/auth";
@@ -38,8 +38,8 @@ export function GameOverScreen({
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const firestore = useFirestore();
-  const userDocRef = user ? doc(firestore, 'users', user.uid) as DocumentReference<{username: string}> : null;
-  const { data: userData } = useDoc(userDocRef);
+  const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
+  const { data: userData } = useDoc<{username: string}>(userDocRef);
   const [scoreSaved, setScoreSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -92,7 +92,8 @@ export function GameOverScreen({
   const handleSaveScore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || user.isAnonymous) {
-        router.push('/login');
+        // This should not happen if the UI is correct, but as a safeguard.
+        toast({ variant: 'destructive', title: 'Login Required', description: 'Please sign in to save your score.' });
         return;
     }
 
