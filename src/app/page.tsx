@@ -523,7 +523,7 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
         return (
           <GameOverScreen
             finalScore={score}
-            finalStreak={finalStreak}
+            finalStreak={streak}
             onPlayAgain={startGame}
             bestStreak={bestStreak}
             accuracy={accuracy}
@@ -556,4 +556,3 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
     </main>
   );
 }
-
