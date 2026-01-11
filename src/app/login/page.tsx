@@ -1,5 +1,6 @@
+
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -27,6 +28,8 @@ import { doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { FirebaseError } from 'firebase/app';
 import { Separator } from '@/components/ui/separator';
+import { Home } from 'lucide-react';
+import Link from 'next/link';
 
 const GoogleIcon = () => (
     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
@@ -65,7 +68,7 @@ export default function LoginPage() {
       attempts++;
     }
      if (!isAvailable) {
-      return `${baseUsername}${Date.now()}`;
+      return `${baseUsername}${Date.now().toString().slice(-5)}`;
     }
     return username;
   };
@@ -170,12 +173,20 @@ export default function LoginPage() {
   };
 
   
-  if (isUserLoading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
-  if (user && !user.isAnonymous) router.push('/');
+  useEffect(() => {
+    if (!isUserLoading && user && !user.isAnonymous) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
 
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-body">
+        <div className="absolute top-4 right-4">
+            <Button asChild variant="outline">
+                <Link href="/"><Home className="mr-2" /> Back to Home</Link>
+            </Button>
+        </div>
       <div className="w-full max-w-sm space-y-6">
         <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
           {isLoading ? 'Signing in...' : <><GoogleIcon /> Sign in with Google</>}

@@ -13,6 +13,7 @@ import { doc, writeBatch, getDoc, collection } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
+import { AuthScreen } from '@/components/game/AuthScreen';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 export type Difficulty = 'easy' | 'medium' | 'dynamic';
@@ -74,11 +75,9 @@ export default function Home() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [totalResponseTime, setTotalResponseTime] = useState(0);
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
-    }
-  }, [isUserLoading, user, auth]);
+  const handleGuestSignIn = () => {
+    initiateAnonymousSignIn(auth);
+  };
   
 
   const getDifficultySettings = useCallback(() => {
@@ -419,9 +418,17 @@ export default function Home() {
 };
 
   const renderContent = () => {
-    if (!isClient || isUserLoading) {
+    if (!isClient) {
       return <LoadingScreen />;
     }
+    if (isUserLoading) {
+      return <LoadingScreen />;
+    }
+    if (!user) {
+      return <AuthScreen onGuestSignIn={handleGuestSignIn} />;
+    }
+
+
     switch (gameState) {
       case 'playing':
         return question && (
