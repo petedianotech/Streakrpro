@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
-import { Flame, Star, Target, BarChart, Trophy, History } from 'lucide-react';
+import { History, Star, Target, Trophy } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { Bar, BarChart as BarChartComponent, CartesianGrid, XAxis } from 'recharts';
 
@@ -168,6 +168,7 @@ export default function ProfilePage() {
         }
 
       if (providerId === 'google.com' && deleteConfirmation.toLowerCase() === 'delete') {
+        // Re-authentication for Google is handled via popup
         const googleProvider = new GoogleAuthProvider();
         await signInWithPopup(auth, googleProvider);
       }
@@ -360,5 +361,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-    

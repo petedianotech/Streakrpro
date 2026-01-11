@@ -9,7 +9,7 @@ import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, writeBatch, getDoc, collection, addDoc, updateDoc, arrayUnion, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, collection } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
@@ -29,7 +29,6 @@ const TIMER_SECONDS = 10;
 const PERFECT_STREAK_BONUS = 100;
 const COMBO_MULTIPLIER_THRESHOLD = 5;
 const INITIAL_TIME_POWER_UPS = 3;
-const QUESTIONS_PER_LEVEL = 10;
 const SAVE_STREAK_MINIMUM = 5;
 
 
@@ -89,6 +88,7 @@ export default function Home() {
         case 'easy':
             return { range: 9, operator: '+' as Operator, level: 1 };
         case 'medium':
+            // Introduce multiplication for variety in medium
             if (streak > 0 && streak % 4 === 0) {
                  return { range: 9, operator: 'x' as Operator, level: 15 };
             }
@@ -96,19 +96,20 @@ export default function Home() {
         case 'dynamic':
         default:
             const level = Math.max(1, Math.floor(streak / 2) + 1); 
-            if (level <= 15) { 
+            // More granular progression for dynamic difficulty
+            if (level <= 15) { // Addition focused levels
                 let range;
-                if (level <= 3) range = 10;
-                else if (level <= 7) range = 50;
-                else range = 150;
+                if (level <= 3) range = 10; // e.g., 8 + 5
+                else if (level <= 7) range = 50; // e.g., 34 + 48
+                else range = 150; // e.g., 121 + 98
                 return { range, operator: '+' as Operator, level };
-            } else { 
+            } else { // Multiplication focused levels
                 let range;
                 const mulLevel = level - 15;
-                if (mulLevel <= 5) range = 12;
-                else if (mulLevel <= 10) range = 15;
-                else if (mulLevel <= 15) range = 20;
-                else range = 25;
+                if (mulLevel <= 5) range = 12; // e.g., 8 x 9
+                else if (mulLevel <= 10) range = 15; // e.g., 13 x 14
+                else if (mulLevel <= 15) range = 20; // e.g., 18 x 17
+                else range = 25; // e.g., 22 x 24
                 return { range, operator: 'x' as Operator, level };
             }
     }
@@ -161,7 +162,7 @@ export default function Home() {
         username: user.displayName,
         score: score,
         streak: streak,
-        timestamp: new Date(),
+        timestamp: serverTimestamp(),
       });
       toast({
         title: 'Score Saved!',
@@ -430,12 +431,10 @@ export default function Home() {
   
 
   const renderContent = () => {
-    if (!isClient) {
+    if (!isClient || isUserLoading) {
       return <LoadingScreen />;
     }
-    if (isUserLoading) {
-      return <LoadingScreen />;
-    }
+    
     if (!user) {
       return <AuthScreen onGuestSignIn={handleGuestSignIn} />;
     }
@@ -506,5 +505,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
