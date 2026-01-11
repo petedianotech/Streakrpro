@@ -5,11 +5,6 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Award, Share2, Target, Timer, Trophy } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useDoc, useMemoFirebase } from "@/firebase";
-import { doc, DocumentReference } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
 import { User } from "firebase/auth";
 import Link from "next/link";
 
@@ -21,7 +16,6 @@ type GameOverScreenProps = {
   bestStreak: number;
   accuracy: number;
   avgResponseTime: number;
-  onSaveScore: (username: string) => Promise<boolean>;
   user: User | null;
 };
 
@@ -32,25 +26,9 @@ export function GameOverScreen({
   bestStreak,
   accuracy,
   avgResponseTime,
-  onSaveScore,
   user
 }: GameOverScreenProps) {
   const { toast } = useToast();
-  const [username, setUsername] = useState("");
-  const firestore = useFirestore();
-  const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
-  const { data: userData } = useDoc<{username: string}>(userDocRef);
-  const [scoreSaved, setScoreSaved] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (userData?.username) {
-      setUsername(userData.username);
-    } else if (user?.displayName) {
-      setUsername(user.displayName);
-    }
-  }, [userData, user]);
-
 
   const handleShare = async () => {
     const shareText = `Just crushed it in Streakrpro! ✨ My top score is ${finalScore} with a ${finalStreak} streak. Think you can beat me?`;
@@ -88,27 +66,6 @@ export function GameOverScreen({
       }
     }
   };
-
-  const handleSaveScore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || user.isAnonymous) {
-        // This should not happen if the UI is correct, but as a safeguard.
-        toast({ variant: 'destructive', title: 'Login Required', description: 'Please sign in to save your score.' });
-        return;
-    }
-
-    if (!username) {
-        toast({ variant: 'destructive', title: 'Username required', description: 'Please enter a username to save your score.' });
-        return;
-    }
-    setIsSaving(true);
-    const success = await onSaveScore(username);
-    if (success) {
-        setScoreSaved(true);
-    }
-    setIsSaving(false);
-  };
-
 
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
@@ -148,35 +105,15 @@ export function GameOverScreen({
           </div>
         </div>
 
-        {user && (
+        {user && user.isAnonymous && (
           <>
             <Separator />
-            {user.isAnonymous ? (
-                <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">You're playing as a guest.</p>
-                    <Button asChild className="w-full">
-                        <Link href="/login">Sign Up or Login to Save Your Score</Link>
-                    </Button>
-                </div>
-            ) : (
-                <form onSubmit={handleSaveScore} className="space-y-4">
-                    <Label htmlFor="username" className="text-left block text-sm font-medium text-muted-foreground">
-                    Confirm your username to save your score:
-                    </Label>
-                    <div className="flex gap-2">
-                        <Input
-                            id="username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Your Name"
-                            disabled={scoreSaved || isSaving || !!userData?.username}
-                        />
-                        <Button type="submit" disabled={scoreSaved || isSaving || !username}>
-                            {isSaving ? 'Saving...' : (scoreSaved ? 'Saved!' : 'Save Score')}
-                        </Button>
-                    </div>
-                </form>
-            )}
+            <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">You're playing as a guest.</p>
+                <Button asChild className="w-full">
+                    <Link href="/login">Sign In to Save Your Score</Link>
+                </Button>
+            </div>
           </>
         )}
 
