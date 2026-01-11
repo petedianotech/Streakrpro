@@ -18,6 +18,7 @@
  * - Username Uniqueness: A user can only create a document in `/usernames` if it doesn't already exist.
  *   This is the core mechanism for reserving a unique username. Deletion is also owner-only.
  * - Read-Only Global Data: The `/daily_challenges` collection is read-only for clients.
+ * - Google Sign-In: Users can be created with Google, which may pre-fill their username.
  *
  * Denormalization for Authorization: The rules rely on the 'userId' field being denormalized
  * onto each `LeaderboardEntry` and `Username` document. This allows for fast and inexpensive security checks
@@ -32,18 +33,26 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     /**
-     * Checks if the user is authenticated.
+     * Checks if the user is authenticated (not anonymous).
      */
     function isSignedIn() {
       return request.auth != null;
     }
+    
+    /**
+     * Checks if the user is a registered user (not anonymous).
+     */
+    function isRegisteredUser() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
 
     /**
      * Checks if the authenticated user's UID matches the provided userId.
      * Used for ownership validation.
      */
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isRegisteredUser() && request.auth.uid == userId;
     }
 
     /**
@@ -70,9 +79,8 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow get, update: if isOwner(userId);
+      allow get, update, delete: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow delete: if isOwner(userId);
       allow list: if false; // CRITICAL: Prevent listing all users.
     }
 
@@ -100,11 +108,11 @@ service cloud.firestore {
      * @path /usernames/{username}
      */
     match /usernames/{username} {
-      allow get: if isSignedIn();
+      allow get: if isRegisteredUser();
       // Only the user themselves can create their username document, and only if it doesn't already exist.
       allow create: if createdByOwner() && !exists(/databases/$(database)/documents/usernames/$(username));
       // Only the user who owns the username can delete it.
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isRegisteredUser() && resource.data.userId == request.auth.uid;
       allow update, list: if false;
     }
   }

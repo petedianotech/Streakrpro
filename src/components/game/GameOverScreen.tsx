@@ -91,6 +91,11 @@ export function GameOverScreen({
 
   const handleSaveScore = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || user.isAnonymous) {
+        router.push('/login');
+        return;
+    }
+
     if (!username) {
         toast({ variant: 'destructive', title: 'Username required', description: 'Please enter a username to save your score.' });
         return;
@@ -145,24 +150,32 @@ export function GameOverScreen({
         {user && (
           <>
             <Separator />
-            <form onSubmit={handleSaveScore} className="space-y-4">
-                <Label htmlFor="username" className="text-left block text-sm font-medium text-muted-foreground">
-                  {user.isAnonymous ? 'Enter a username to save your score:' : 'Confirm your username to save:'}
-                </Label>
-                <div className="flex gap-2">
-                    <Input
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Your Name"
-                        disabled={scoreSaved || isSaving || (!user.isAnonymous && !!userData?.username)}
-                    />
-                    <Button type="submit" disabled={scoreSaved || isSaving || !username}>
-                        {isSaving ? 'Saving...' : (scoreSaved ? 'Saved!' : 'Save Score')}
+            {user.isAnonymous ? (
+                <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">You're playing as a guest.</p>
+                    <Button asChild className="w-full">
+                        <Link href="/login">Sign Up or Login to Save Your Score</Link>
                     </Button>
                 </div>
-                {user.isAnonymous && <p className="text-xs text-muted-foreground">You are playing as a guest. <Link href="/login" className="underline">Sign up</Link> to save your progress!</p>}
-            </form>
+            ) : (
+                <form onSubmit={handleSaveScore} className="space-y-4">
+                    <Label htmlFor="username" className="text-left block text-sm font-medium text-muted-foreground">
+                    Confirm your username to save your score:
+                    </Label>
+                    <div className="flex gap-2">
+                        <Input
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Your Name"
+                            disabled={scoreSaved || isSaving || !!userData?.username}
+                        />
+                        <Button type="submit" disabled={scoreSaved || isSaving || !username}>
+                            {isSaving ? 'Saving...' : (scoreSaved ? 'Saved!' : 'Save Score')}
+                        </Button>
+                    </div>
+                </form>
+            )}
           </>
         )}
 
