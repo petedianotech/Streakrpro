@@ -153,6 +153,7 @@
               "name": "userId",
               "description": "Unique identifier for the user."
             }
+
           ]
         }
       },
@@ -192,3 +193,4 @@
     "reasoning": "The Firestore data structure is designed to support the core features of the Streakrpro app, focusing on leaderboards, daily challenges, and user data, while adhering to the principles of Authorization Independence, Clarity of Intent, and DBAC.  The structure uses path-based ownership for user-specific data and a global collection for the leaderboard. A new `/usernames` collection is added to enforce username uniqueness, which is a critical requirement. Daily challenges are stored in a dedicated collection, allowing for easy querying and management.\n\n*   **Authorization Independence:** User-specific data (e.g., `dailyChallengeCompletions`) is stored under the `/users/{userId}` path, ensuring clear ownership. Leaderboard entries include the `userId`, eliminating the need for `get()` calls in security rules to verify ownership. The denormalization strategy avoids hierarchical authorization dependencies, enabling atomic operations.\n*   **Clarity of Intent:** The structure clearly separates user data, leaderboard data, username reservations, and daily challenge data into distinct collections.  The naming conventions are explicit, making the purpose of each collection and field clear.\n*   **Username Uniqueness**: A new top-level collection `/usernames/{username}` is introduced. The document ID is the lowercase version of the username. This allows for an atomic `create` operation to reserve a username, which will fail if the document already exists, thus enforcing uniqueness at the database level. The security rules will ensure that only the correct user can create or delete their own username document.\n\n*   **QAPs (Rules are not Filters):** The structure supports secure `list` operations.  Listing leaderboard entries does not require filtering based on user roles or permissions, as it's a global collection. Listing daily challenges is also straightforward.  User-specific data is accessed via path-based ownership, ensuring that only the user can access their own data.\n\nThis design promotes security, scalability, and debuggability, aligning with the core design principles and strategy mandates."
   }
 }
+    
