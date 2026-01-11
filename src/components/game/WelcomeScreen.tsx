@@ -3,15 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Award, Flame, User as UserIcon } from "lucide-react";
 import Link from 'next/link';
 import { User } from "firebase/auth";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type Difficulty } from "@/app/page";
 
 type WelcomeScreenProps = {
   onStart: () => void;
   dailyStreak: number;
   bestStreak: number;
   user: User | null;
+  difficulty: Difficulty;
+  onDifficultyChange: (difficulty: Difficulty) => void;
 };
 
-export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user }: WelcomeScreenProps) {
+export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user, difficulty, onDifficultyChange }: WelcomeScreenProps) {
   return (
     <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
       <CardHeader>
@@ -40,7 +44,14 @@ export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user }: Welcom
         <CardTitle className="text-4xl font-bold font-headline pt-4">Streakrpro</CardTitle>
         <CardDescription>How long can you keep the streak going?</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <Tabs value={difficulty} onValueChange={(value) => onDifficultyChange(value as Difficulty)} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="easy">Easy</TabsTrigger>
+                <TabsTrigger value="medium">Medium</TabsTrigger>
+                <TabsTrigger value="dynamic">Dynamic</TabsTrigger>
+            </TabsList>
+        </Tabs>
         <Button onClick={onStart} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
           Start Game
         </Button>

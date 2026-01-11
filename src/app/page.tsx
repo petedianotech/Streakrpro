@@ -15,6 +15,7 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
+export type Difficulty = 'easy' | 'medium' | 'dynamic';
 
 type Question = {
   text: string;
@@ -64,6 +65,7 @@ export default function Home() {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const [difficulty, setDifficulty] = useState<Difficulty>('dynamic');
 
 
   // Session Stats
@@ -79,29 +81,40 @@ export default function Home() {
   }, [isUserLoading, user, auth]);
   
 
-  const getDifficulty = useCallback(() => {
-    const level = Math.max(1, Math.floor(streak / 1) + 1);
-
-    if (level <= 20) { // Addition levels
-        let range;
-        if (level <= 5) range = 10;
-        else if (level <= 10) range = 25;
-        else if (level <= 15) range = 50;
-        else range = 100;
-        return { range, operator: '+' as Operator, level: Math.min(level, 40) };
-    } else { // Multiplication levels
-        let range;
-        const mulLevel = level - 20;
-        if (mulLevel <= 5) range = 10;       // e.g., 8x9
-        else if (mulLevel <= 10) range = 12; // e.g., 11x12
-        else if (mulLevel <= 15) range = 15; // e.g., 13x14
-        else range = 20;                     // e.g., 18x19
-        return { range, operator: 'x' as Operator, level: Math.min(level, 40) };
+  const getDifficultySettings = useCallback(() => {
+    switch (difficulty) {
+        case 'easy':
+            return { range: 10, operator: '+' as Operator, level: 1 };
+        case 'medium':
+            // Introduce multiplication earlier for medium
+            if (streak % 4 === 0 && streak > 0) { // Every 4 streaks, throw a multiplication question
+                 return { range: 10, operator: 'x' as Operator, level: 10 };
+            }
+            return { range: 50, operator: '+' as Operator, level: 5 };
+        case 'dynamic':
+        default:
+            const level = Math.max(1, Math.floor(streak / 1) + 1);
+            if (level <= 20) { // Addition levels
+                let range;
+                if (level <= 5) range = 10;
+                else if (level <= 10) range = 25;
+                else if (level <= 15) range = 50;
+                else range = 100;
+                return { range, operator: '+' as Operator, level: Math.min(level, 40) };
+            } else { // Multiplication levels
+                let range;
+                const mulLevel = level - 20;
+                if (mulLevel <= 5) range = 10;       // e.g., 8x9
+                else if (mulLevel <= 10) range = 12; // e.g., 11x12
+                else if (mulLevel <= 15) range = 15; // e.g., 13x14
+                else range = 20;                     // e.g., 18x19
+                return { range, operator: 'x' as Operator, level: Math.min(level, 40) };
+            }
     }
-  }, [streak]);
+  }, [streak, difficulty]);
 
   const generateQuestion = useCallback(() => {
-    const { range, operator } = getDifficulty();
+    const { range, operator } = getDifficultySettings();
     
     let num1, num2;
     // Use a while loop to ensure we get a non-trivial question
@@ -140,16 +153,16 @@ export default function Home() {
     });
     setTimer(TIMER_SECONDS);
     setQuestionStartTime(Date.now());
-  }, [getDifficulty]);
+  }, [getDifficultySettings]);
 
   const handleTimeout = useCallback(() => {
     setScoreMultiplier(1);
-    if (streak >= SAVE_STREAK_MINIMUM) {
+    if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { // Only offer to save on dynamic mode
       setGameState('save-streak');
     } else {
       handleEndGame();
     }
-  }, [streak]);
+  }, [streak, difficulty]);
 
   const handleEndGame = () => {
     setGameState('game-over');
@@ -298,7 +311,7 @@ export default function Home() {
     } else {
       triggerHapticFeedback([20, 20, 20]);
       setScoreMultiplier(1);
-      if (streak >= SAVE_STREAK_MINIMUM) {
+      if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { // Only offer to save on dynamic mode
         setGameState('save-streak');
       } else {
         handleEndGame();
@@ -423,7 +436,7 @@ export default function Home() {
             scoreMultiplier={scoreMultiplier}
             timePowerUps={timePowerUps}
             onUseTimePowerUp={handleUseTimePowerUp}
-            difficultyLevel={getDifficulty().level}
+            difficultyLevel={getDifficultySettings().level}
           />
         );
       case 'save-streak':
@@ -457,6 +470,8 @@ export default function Home() {
             dailyStreak={dailyStreak}
             bestStreak={bestStreak}
             user={user}
+            difficulty={difficulty}
+            onDifficultyChange={setDifficulty}
           />
         );
     }
