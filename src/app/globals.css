@@ -56,3 +56,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-flame {
+    animation: flame-pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  }
+
+  @keyframes flame-pulse {
+    50% {
+      transform: scale(1.1);
+      filter: brightness(1.2);
+    }
+  }
+}
