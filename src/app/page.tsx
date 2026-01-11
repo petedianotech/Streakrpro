@@ -7,13 +7,13 @@ import { GameScreen } from '@/components/game/GameScreen';
 import { SaveStreakScreen } from '@/components/game/SaveStreakScreen';
 import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
+import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, writeBatch, getDoc, collection, addDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { doc, writeBatch, getDoc, collection, addDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
+import { DailyChallenge, getTodayChallenge } from '@/lib/daily-challenges';
 
 type GameState = 'welcome' | 'playing' | 'save-streak' | 'game-over';
 export type Difficulty = 'easy' | 'medium' | 'dynamic';
@@ -67,6 +67,10 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [difficulty, setDifficulty] = useState<Difficulty>('dynamic');
+  const [todayChallenge, setTodayChallenge] = useState<DailyChallenge | null>(null);
+
+  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+  const { data: userData } = useDoc<{ dailyChallengeCompletions: string[] }>(userDocRef);
 
 
   // Session Stats
@@ -83,30 +87,28 @@ export default function Home() {
   const getDifficultySettings = useCallback(() => {
     switch (difficulty) {
         case 'easy':
-            // Simple, single-digit addition.
             return { range: 9, operator: '+' as Operator, level: 1 };
         case 'medium':
-            // Mix of double-digit addition and simple multiplication.
-            if (streak > 0 && streak % 3 === 0) { // Every 3rd question is multiplication
-                 return { range: 12, operator: 'x' as Operator, level: 15 };
+            if (streak > 0 && streak % 4 === 0) {
+                 return { range: 9, operator: 'x' as Operator, level: 15 };
             }
-            return { range: 75, operator: '+' as Operator, level: 10 };
+            return { range: 99, operator: '+' as Operator, level: 10 };
         case 'dynamic':
         default:
-            const level = Math.max(1, Math.floor(streak / 2) + 1); // Progress faster
-            if (level <= 15) { // Addition levels (ramps up quickly)
+            const level = Math.max(1, Math.floor(streak / 2) + 1); 
+            if (level <= 15) { 
                 let range;
-                if (level <= 3) range = 10;   // 1-digit
-                else if (level <= 7) range = 50;  // 2-digit
-                else range = 150; // 2-3 digit
+                if (level <= 3) range = 10;
+                else if (level <= 7) range = 50;
+                else range = 150;
                 return { range, operator: '+' as Operator, level };
-            } else { // Multiplication levels (starts earlier)
+            } else { 
                 let range;
                 const mulLevel = level - 15;
-                if (mulLevel <= 5) range = 12; // up to 12x12
-                else if (mulLevel <= 10) range = 15; // up to 15x15
-                else if (mulLevel <= 15) range = 20; // up to 20x20
-                else range = 25; // up to 25x25
+                if (mulLevel <= 5) range = 12;
+                else if (mulLevel <= 10) range = 15;
+                else if (mulLevel <= 15) range = 20;
+                else range = 25;
                 return { range, operator: 'x' as Operator, level };
             }
     }
@@ -119,7 +121,7 @@ export default function Home() {
     let correctAnswer;
     
     if (operator === 'x') {
-      num1 = Math.floor(Math.random() * (range - 2)) + 2; // Avoid 0, 1 for multiplication
+      num1 = Math.floor(Math.random() * (range - 2)) + 2;
       num2 = Math.floor(Math.random() * (range - 2)) + 2;
     } else {
       num1 = Math.floor(Math.random() * range) + 1;
@@ -176,7 +178,7 @@ export default function Home() {
 
   const handleTimeout = useCallback(() => {
     setScoreMultiplier(1);
-    if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { // Only offer to save on dynamic mode
+    if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { 
       setGameState('save-streak');
     } else {
       handleEndGame();
@@ -185,10 +187,7 @@ export default function Home() {
 
   
   useEffect(() => {
-    // This runs only once on mount, making the app client-side ready.
     setIsClient(true);
-    
-    // Load initial values from localStorage.
     setBestStreak(Number(localStorage.getItem('bestStreak') || '0'));
     
     const today = new Date().toDateString();
@@ -201,14 +200,18 @@ export default function Home() {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         if (lastPlayedDate.toDateString() !== yesterday.toDateString()) {
-          currentDailyStreak = 0; // Reset if they missed a day
+          currentDailyStreak = 0;
         }
       }
     } else {
         currentDailyStreak = 0;
     }
     setDailyStreak(currentDailyStreak);
-  }, []);
+
+    if (firestore) {
+      getTodayChallenge(firestore).then(setTodayChallenge);
+    }
+  }, [isClient, firestore]);
 
   useEffect(() => {
     if (gameState !== 'playing' || !isClient) return;
@@ -251,7 +254,7 @@ export default function Home() {
             if (lastPlayedDate.toDateString() === yesterday.toDateString()) {
                 currentDailyStreak += 1;
             } else {
-                currentDailyStreak = 1; // Reset if missed a day
+                currentDailyStreak = 1;
             }
         }
     }
@@ -276,11 +279,35 @@ export default function Home() {
       try {
         navigator.vibrate(pattern);
       } catch (e) {
-        // This can happen if the user has vibration disabled in their device settings.
         console.warn('Haptic feedback failed.', e);
       }
     }
   };
+
+  const checkDailyChallenge = useCallback((currentStreak: number, currentScore: number) => {
+    if (!todayChallenge || !user || !userDocRef) return;
+
+    const hasCompleted = userData?.dailyChallengeCompletions?.includes(todayChallenge.id);
+    if (hasCompleted) return;
+
+    let challengeMet = false;
+    if (todayChallenge.type === 'streak' && currentStreak >= todayChallenge.target) {
+      challengeMet = true;
+    } else if (todayChallenge.type === 'score' && currentScore >= todayChallenge.target) {
+      challengeMet = true;
+    }
+    
+    if (challengeMet) {
+      updateDoc(userDocRef, {
+        dailyChallengeCompletions: arrayUnion(todayChallenge.id)
+      });
+      toast({
+        title: 'Daily Challenge Complete!',
+        description: `You earned ${todayChallenge.reward} bonus points!`,
+      });
+      setScore(s => s + todayChallenge.reward);
+    }
+  }, [todayChallenge, user, userDocRef, userData, toast]);
 
   const handleAnswer = (isCorrect: boolean, event: React.MouseEvent<HTMLButtonElement>) => {
     const responseTime = TIMER_SECONDS - timer;
@@ -292,7 +319,6 @@ export default function Home() {
     if (isCorrect) {
       triggerHapticFeedback();
       const newStreak = streak + 1;
-      // Bonus points for faster answers
       const timeBonus = Math.max(0, (TIMER_SECONDS - responseTime) / 2); 
       const points = Math.round((10 + timeBonus) * scoreMultiplier);
       let newScore = score + points;
@@ -323,11 +349,12 @@ export default function Home() {
       }
 
       setScore(newScore);
+      checkDailyChallenge(newStreak, newScore);
       generateQuestion();
     } else {
       triggerHapticFeedback([20, 20, 20]);
       setScoreMultiplier(1);
-      if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { // Only offer to save on dynamic mode
+      if (streak >= SAVE_STREAK_MINIMUM && difficulty === 'dynamic') { 
         setGameState('save-streak');
       } else {
         handleEndGame();
@@ -336,7 +363,6 @@ export default function Home() {
   };
   
   const handleContinueFromSave = () => {
-    // In a real app, integrate an ad SDK and wait for the reward.
     generateQuestion();
     setGameState('playing');
   };
@@ -364,6 +390,7 @@ export default function Home() {
       return <AuthScreen onGuestSignIn={handleGuestSignIn} />;
     }
 
+    const challengeCompleted = !!(todayChallenge && userData?.dailyChallengeCompletions?.includes(todayChallenge.id));
 
     switch (gameState) {
       case 'playing':
@@ -414,6 +441,8 @@ export default function Home() {
             user={user}
             difficulty={difficulty}
             onDifficultyChange={setDifficulty}
+            dailyChallenge={todayChallenge}
+            challengeCompleted={challengeCompleted}
           />
         );
     }

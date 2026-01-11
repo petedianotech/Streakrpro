@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, Flame, User as UserIcon } from "lucide-react";
@@ -6,6 +7,8 @@ import { User } from "firebase/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Difficulty } from "@/app/page";
 import { Label } from "../ui/label";
+import { DailyChallengeCard } from "./DailyChallengeCard";
+import { DailyChallenge } from "@/lib/daily-challenges";
 
 type WelcomeScreenProps = {
   onStart: () => void;
@@ -14,11 +17,23 @@ type WelcomeScreenProps = {
   user: User | null;
   difficulty: Difficulty;
   onDifficultyChange: (difficulty: Difficulty) => void;
+  dailyChallenge: DailyChallenge | null;
+  challengeCompleted: boolean;
 };
 
-export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user, difficulty, onDifficultyChange }: WelcomeScreenProps) {
+export function WelcomeScreen({ 
+    onStart, 
+    dailyStreak, 
+    bestStreak, 
+    user, 
+    difficulty, 
+    onDifficultyChange,
+    dailyChallenge,
+    challengeCompleted
+}: WelcomeScreenProps) {
   return (
-    <Card className="text-center animate-in fade-in zoom-in-95 duration-500">
+    <div className="space-y-4 animate-in fade-in zoom-in-95 duration-500">
+    <Card className="text-center">
       <CardHeader>
         {user && !user.isAnonymous ? (
             <div className="flex justify-center items-center gap-2 text-muted-foreground mb-4">
@@ -61,5 +76,12 @@ export function WelcomeScreen({ onStart, dailyStreak, bestStreak, user, difficul
         </Button>
       </CardContent>
     </Card>
+    {dailyChallenge && (
+        <DailyChallengeCard 
+            challenge={dailyChallenge}
+            isCompleted={challengeCompleted}
+        />
+    )}
+    </div>
   );
 }

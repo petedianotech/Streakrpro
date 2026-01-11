@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth, useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
@@ -23,6 +24,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
 
+type UserData = {
+    username: string;
+    dailyChallengeCompletions?: string[];
+}
+
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -31,7 +37,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ username: string }>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
 
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -82,21 +88,18 @@ export default function ProfilePage() {
 
         const batch = writeBatch(firestore);
         
-        // Release old username if it exists
-        if (userData?.username) {
-            const oldUsernameLower = userData.username.toLowerCase();
+        const oldUsername = userData?.username || user?.displayName;
+        if (oldUsername) {
+            const oldUsernameLower = oldUsername.toLowerCase();
             const oldUsernameRef = doc(firestore, 'usernames', oldUsernameLower);
             batch.delete(oldUsernameRef);
         }
 
-        // Reserve new username
         batch.set(newUsernameRef, { userId: user.uid });
 
-        // Update user document
         const userRef = doc(firestore, 'users', user.uid);
         batch.set(userRef, { username: username }, { merge: true });
 
-        // Update auth profile
         if (auth.currentUser) {
             await updateProfile(auth.currentUser, { displayName: username });
         }
@@ -119,29 +122,29 @@ export default function ProfilePage() {
     setIsDeleting(true);
 
     try {
-      if (providerId === 'password' && user.email) {
-        if (password) {
-          const credential = EmailAuthProvider.credential(user.email, password);
-          await reauthenticateWithCredential(user, credential);
-        } else if (deleteConfirmation !== 'delete') {
-          toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please enter your password or type "delete" to confirm.' });
-          setIsDeleting(false);
-          return;
+        let needsReauth = false;
+        if (providerId === 'password' && user.email && password) {
+            needsReauth = true;
+            const credential = EmailAuthProvider.credential(user.email, password);
+            await reauthenticateWithCredential(user, credential);
         }
-      } else if (providerId === 'google.com') {
-        if (deleteConfirmation !== 'delete') {
-          toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please type "delete" to confirm.' });
-          setIsDeleting(false);
-          return;
+
+        if(deleteConfirmation.toLowerCase() !== 'delete' && !needsReauth) {
+             toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please type "delete" to confirm.' });
+             setIsDeleting(false);
+             return;
         }
+
+      if (providerId === 'google.com' && !needsReauth) {
         const googleProvider = new GoogleAuthProvider();
         await signInWithPopup(auth, googleProvider);
       }
       
       const batch = writeBatch(firestore);
       const userRef = doc(firestore, "users", user.uid);
-      if (userData?.username) {
-        const usernameRef = doc(firestore, "usernames", userData.username.toLowerCase());
+      const currentUsername = userData?.username || user.displayName;
+      if (currentUsername) {
+        const usernameRef = doc(firestore, "usernames", currentUsername.toLowerCase());
         batch.delete(usernameRef);
       }
       batch.delete(userRef);
@@ -217,7 +220,7 @@ export default function ProfilePage() {
           <CardHeader>
             <CardTitle className="text-destructive">Delete Account</CardTitle>
             <CardDescription>
-              This action is irreversible. All your data, including your leaderboard scores, will be permanently deleted.
+              This action is irreversible. All your data will be permanently deleted.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -229,7 +232,7 @@ export default function ProfilePage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. To confirm, please 
+                    To confirm, please 
                     {providerId === 'password' ? ' enter your password OR type "delete" below.' : ' type "delete" below.'}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -237,7 +240,7 @@ export default function ProfilePage() {
                   {providerId === 'password' ? (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="password-confirm">Password</Label>
+                        <Label htmlFor="password-confirm">Password (if remembered)</Label>
                         <Input
                           id="password-confirm"
                           type="password"
@@ -248,10 +251,10 @@ export default function ProfilePage() {
                       </div>
                       <div className="relative">
                         <Separator />
-                        <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-xs text-muted-foreground">OR</span>
+                        <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card px-2 text-xs text-muted-foreground">OR</span>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="delete-confirm">If you forgot your password, type "delete"</Label>
+                        <Label htmlFor="delete-confirm">Type "delete" to confirm</Label>
                         <Input
                           id="delete-confirm"
                           type="text"
