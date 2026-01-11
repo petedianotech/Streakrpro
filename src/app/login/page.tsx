@@ -58,6 +58,7 @@ export default function LoginPage() {
     let isAvailable = false;
     let attempts = 0;
     while (!isAvailable && attempts < 10) {
+      if (!firestore) continue;
       const usernameRef = doc(firestore, 'usernames', username.toLowerCase());
       const usernameDoc = await getDoc(usernameRef);
       if (!usernameDoc.exists()) {
@@ -99,6 +100,12 @@ export default function LoginPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to the database. Please try again.' });
+        setIsLoading(false);
+        return;
+    }
 
     if (!signUpUsername) {
       toast({ variant: 'destructive', title: 'Username is required.' });
@@ -261,3 +268,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
+    
