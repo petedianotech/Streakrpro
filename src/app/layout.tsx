@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -5,6 +6,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import Link from 'next/link';
 import Script from 'next/script';
 import { Header } from '@/components/layout/Header';
+import { AdScripts } from '@/components/AdScripts';
 
 export const metadata: Metadata = {
   title: 'Streakrpro',
@@ -43,22 +45,7 @@ export default function RootLayout({
             <Link href="/about-developer" className="hover:text-foreground transition-colors mx-2">About Developer</Link>
           </div>
         </footer>
-        <Script id="monetag-in-page-push" strategy="afterInteractive">
-          {`
-            (function(s){
-              s.dataset.zone='10404923';
-              s.src='https://nap5k.com/tag.min.js';
-            })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))
-          `}
-        </Script>
-        <Script id="monetag-vignette" strategy="afterInteractive">
-          {`
-            (function(s){
-              s.dataset.zone='10405020';
-              s.src='https://gizokraijaw.net/vignette.min.js';
-            })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))
-          `}
-        </Script>
+        <AdScripts />
         <Script id="service-worker-registration" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
@@ -76,3 +63,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

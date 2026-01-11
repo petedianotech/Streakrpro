@@ -414,8 +414,32 @@ export default function Home() {
   };
   
   const handleContinueFromSave = () => {
-    generateQuestion();
-    setGameState('playing');
+    // This is now handled by the ad callback
+  };
+
+  const handleShowRewardedAd = () => {
+    if ((window as any).Adsgram) {
+      (window as any).Adsgram.showRewardedVideo({
+        onReward: () => {
+          toast({ title: 'Streak Saved!', description: 'You can continue playing.' });
+          generateQuestion();
+          setGameState('playing');
+        },
+        onFail: () => {
+          toast({ variant: 'destructive', title: 'Ad Failed', description: 'Could not show ad. Ending game.' });
+          handleEndGame();
+        },
+        onClose: (wasRewarded: boolean) => {
+          if (!wasRewarded) {
+            toast({ variant: 'destructive', title: 'Ad Closed', description: 'You must watch the full ad to save your streak. Ending game.' });
+            handleEndGame();
+          }
+        }
+      });
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: 'Ad provider not found. Could not save streak.' });
+      handleEndGame();
+    }
   };
   
   const handleUseTimePowerUp = () => {
@@ -462,7 +486,7 @@ export default function Home() {
         return (
           <SaveStreakScreen
             streak={streak}
-            onSave={handleContinueFromSave}
+            onSave={handleShowRewardedAd}
             onEnd={handleEndGame}
           />
         );
@@ -505,3 +529,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
