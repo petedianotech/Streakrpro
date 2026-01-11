@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header';
 export const metadata: Metadata = {
   title: 'Streakrpro',
   description: 'Test your math skills and build your streak!',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -23,6 +24,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="#3B4E7A" />
       </head>
       <body className="font-body antialiased flex flex-col min-h-screen">
         <FirebaseClientProvider>
@@ -55,6 +57,19 @@ export default function RootLayout({
               s.dataset.zone='10405020';
               s.src='https://gizokraijaw.net/vignette.min.js';
             })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))
+          `}
+        </Script>
+        <Script id="service-worker-registration" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').then(registration => {
+                  console.log('Service Worker registered with scope:', registration.scope);
+                }).catch(error => {
+                  console.log('Service Worker registration failed:', error);
+                });
+              });
+            }
           `}
         </Script>
       </body>
