@@ -81,7 +81,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
-      allow create: if isOwner(userId);
+      allow create: if createdByOwner();
       allow list: if false; // CRITICAL: Prevent listing all users.
     }
 
@@ -109,7 +109,8 @@ service cloud.firestore {
      * @path /usernames/{username}
      */
     match /usernames/{username} {
-      allow get: if isRegisteredUser();
+      // Allow anyone to check if a username exists to prevent sign-up failures.
+      allow get: if true;
       // Only the user themselves can create their username document, and only if it doesn't already exist.
       allow create: if createdByOwner() && !exists(/databases/$(database)/documents/usernames/$(username));
       // Only the user who owns the username can delete it.
