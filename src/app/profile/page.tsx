@@ -119,21 +119,25 @@ export default function ProfilePage() {
     setIsDeleting(true);
 
     try {
-      // Step 1: Re-authenticate user
       if (providerId === 'password' && user.email) {
-        const credential = EmailAuthProvider.credential(user.email, password);
-        await reauthenticateWithCredential(user, credential);
+        if (password) {
+          const credential = EmailAuthProvider.credential(user.email, password);
+          await reauthenticateWithCredential(user, credential);
+        } else if (deleteConfirmation !== 'delete') {
+          toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please enter your password or type "delete" to confirm.' });
+          setIsDeleting(false);
+          return;
+        }
       } else if (providerId === 'google.com') {
-         if (deleteConfirmation !== 'delete') {
-            toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please type "delete" to confirm.' });
-            setIsDeleting(false);
-            return;
+        if (deleteConfirmation !== 'delete') {
+          toast({ variant: 'destructive', title: 'Confirmation failed', description: 'Please type "delete" to confirm.' });
+          setIsDeleting(false);
+          return;
         }
         const googleProvider = new GoogleAuthProvider();
         await signInWithPopup(auth, googleProvider);
       }
       
-      // Step 2: Delete Firestore data
       const batch = writeBatch(firestore);
       const userRef = doc(firestore, "users", user.uid);
       if (userData?.username) {
@@ -143,11 +147,10 @@ export default function ProfilePage() {
       batch.delete(userRef);
       await batch.commit();
 
-      // Step 3: Delete user from Auth
       await deleteUser(user);
 
       toast({ title: 'Account Deleted', description: 'Your account has been successfully deleted.' });
-      router.push('/'); // Redirect to home page
+      router.push('/');
     
     } catch (error: any) {
         console.error("Error deleting account:", error);
@@ -226,22 +229,38 @@ export default function ProfilePage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. To confirm, please
-                    {providerId === 'password' ? ' enter your password.' : ' type "delete" below.'}
+                    This action cannot be undone. To confirm, please 
+                    {providerId === 'password' ? ' enter your password OR type "delete" below.' : ' type "delete" below.'}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-4 py-4">
                   {providerId === 'password' ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="password-confirm">Password</Label>
-                      <Input
-                        id="password-confirm"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                      />
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="password-confirm">Password</Label>
+                        <Input
+                          id="password-confirm"
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Enter your password"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Separator />
+                        <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-2 text-xs text-muted-foreground">OR</span>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="delete-confirm">If you forgot your password, type "delete"</Label>
+                        <Input
+                          id="delete-confirm"
+                          type="text"
+                          value={deleteConfirmation}
+                          onChange={(e) => setDeleteConfirmation(e.target.value)}
+                          placeholder="delete"
+                        />
+                      </div>
+                    </>
                   ) : (
                      <div className="space-y-2">
                       <Label htmlFor="delete-confirm">Type "delete" to confirm</Label>
