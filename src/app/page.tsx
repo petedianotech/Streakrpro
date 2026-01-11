@@ -83,31 +83,31 @@ export default function Home() {
   const getDifficultySettings = useCallback(() => {
     switch (difficulty) {
         case 'easy':
-            return { range: 10, operator: '+' as Operator, level: 1 };
+            // Simple, single-digit addition.
+            return { range: 9, operator: '+' as Operator, level: 1 };
         case 'medium':
-            // Introduce multiplication earlier for medium
-            if (streak % 4 === 0 && streak > 0) { // Every 4 streaks, throw a multiplication question
-                 return { range: 10, operator: 'x' as Operator, level: 10 };
+            // Mix of double-digit addition and simple multiplication.
+            if (streak > 0 && streak % 3 === 0) { // Every 3rd question is multiplication
+                 return { range: 12, operator: 'x' as Operator, level: 15 };
             }
-            return { range: 50, operator: '+' as Operator, level: 5 };
+            return { range: 75, operator: '+' as Operator, level: 10 };
         case 'dynamic':
         default:
-            const level = Math.max(1, Math.floor(streak / 1) + 1);
-            if (level <= 20) { // Addition levels
+            const level = Math.max(1, Math.floor(streak / 2) + 1); // Progress faster
+            if (level <= 15) { // Addition levels (ramps up quickly)
                 let range;
-                if (level <= 5) range = 10;
-                else if (level <= 10) range = 25;
-                else if (level <= 15) range = 50;
-                else range = 100;
-                return { range, operator: '+' as Operator, level: Math.min(level, 40) };
-            } else { // Multiplication levels
+                if (level <= 3) range = 10;   // 1-digit
+                else if (level <= 7) range = 50;  // 2-digit
+                else range = 150; // 2-3 digit
+                return { range, operator: '+' as Operator, level };
+            } else { // Multiplication levels (starts earlier)
                 let range;
-                const mulLevel = level - 20;
-                if (mulLevel <= 5) range = 10;       // e.g., 8x9
-                else if (mulLevel <= 10) range = 12; // e.g., 11x12
-                else if (mulLevel <= 15) range = 15; // e.g., 13x14
-                else range = 20;                     // e.g., 18x19
-                return { range, operator: 'x' as Operator, level: Math.min(level, 40) };
+                const mulLevel = level - 15;
+                if (mulLevel <= 5) range = 12; // up to 12x12
+                else if (mulLevel <= 10) range = 15; // up to 15x15
+                else if (mulLevel <= 15) range = 20; // up to 20x20
+                else range = 25; // up to 25x25
+                return { range, operator: 'x' as Operator, level };
             }
     }
   }, [streak, difficulty]);
@@ -116,18 +116,16 @@ export default function Home() {
     const { range, operator } = getDifficultySettings();
     
     let num1, num2;
-    // Use a while loop to ensure we get a non-trivial question
     let correctAnswer;
-    do {
-      if (operator === 'x') {
-        num1 = Math.floor(Math.random() * (range - 1)) + 2; // Avoid 0 and 1 for multiplication
-        num2 = Math.floor(Math.random() * (range - 1)) + 2;
-      } else {
-        num1 = Math.floor(Math.random() * range) + 1;
-        num2 = Math.floor(Math.random() * range) + 1;
-      }
-      correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
-    } while (correctAnswer <= 1 || (num1 === 1 && num2 === 1));
+    
+    if (operator === 'x') {
+      num1 = Math.floor(Math.random() * (range - 2)) + 2; // Avoid 0, 1 for multiplication
+      num2 = Math.floor(Math.random() * (range - 2)) + 2;
+    } else {
+      num1 = Math.floor(Math.random() * range) + 1;
+      num2 = Math.floor(Math.random() * range) + 1;
+    }
+    correctAnswer = operator === '+' ? num1 + num2 : num1 * num2;
 
 
     const answers = [{ text: String(correctAnswer), correct: true }];
