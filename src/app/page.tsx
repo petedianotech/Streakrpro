@@ -9,7 +9,7 @@ import { GameOverScreen } from '@/components/game/GameOverScreen';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { User } from 'firebase/auth';
-import { doc, writeBatch, getDoc, collection, addDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, writeBatch, getDoc, collection, addDoc, updateDoc, arrayUnion, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { LoadingScreen } from '@/components/game/LoadingScreen';
 import { AuthScreen } from '@/components/game/AuthScreen';
@@ -154,7 +154,7 @@ export default function Home() {
     setQuestionStartTime(Date.now());
   }, [getDifficultySettings]);
   
-  const handleSaveScore = useCallback(async () => {
+  const handleSaveScoreToLeaderboard = useCallback(async () => {
     if (user && !user.isAnonymous && user.displayName && score > 0) {
       addDocumentNonBlocking(collection(firestore, 'leaderboard'), {
         userId: user.uid,
@@ -170,11 +170,61 @@ export default function Home() {
     }
   }, [user, firestore, score, streak, toast]);
 
+    const handleSaveGameStats = useCallback(async () => {
+        if (!user || user.isAnonymous || !firestore) return;
+
+        const userRef = doc(firestore, 'users', user.uid);
+        const gameHistoryRef = collection(userRef, 'gameHistory');
+
+        // Save the individual game session
+        addDocumentNonBlocking(gameHistoryRef, {
+            userId: user.uid,
+            score: score,
+            streak: streak,
+            timestamp: serverTimestamp(),
+        });
+
+        // Update lifetime stats in a transaction
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists()) {
+                    // This case should ideally not happen for a logged-in user
+                    return;
+                }
+
+                const currentStats = userDoc.data().stats || {
+                    totalScore: 0,
+                    gamesPlayed: 0,
+                    bestStreak: 0,
+                };
+
+                const newGamesPlayed = (currentStats.gamesPlayed || 0) + 1;
+                const newTotalScore = (currentStats.totalScore || 0) + score;
+                const newBestStreak = Math.max(currentStats.bestStreak || 0, streak);
+                const newAverageScore = newTotalScore / newGamesPlayed;
+
+                transaction.set(userRef, {
+                    stats: {
+                        totalScore: newTotalScore,
+                        gamesPlayed: newGamesPlayed,
+                        bestStreak: newBestStreak,
+                        averageScore: newAverageScore,
+                    }
+                }, { merge: true });
+            });
+        } catch (e) {
+            console.error("Transaction failed: ", e);
+            // Optionally notify the user that stat update failed
+        }
+    }, [user, firestore, score, streak]);
+
 
   const handleEndGame = useCallback(() => {
-    handleSaveScore();
+    handleSaveScoreToLeaderboard();
+    handleSaveGameStats();
     setGameState('game-over');
-  }, [handleSaveScore]);
+  }, [handleSaveScoreToLeaderboard, handleSaveGameStats]);
 
   const handleTimeout = useCallback(() => {
     setScoreMultiplier(1);
@@ -456,3 +506,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
