@@ -68,7 +68,7 @@ export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>('dynamic');
   const [todayChallenge, setTodayChallenge] = useState<DailyChallenge | null>(null);
 
-  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+  const userDocRef = useMemoFirebase(() => user && !user.isAnonymous ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userData } = useDoc<{ dailyChallengeCompletions: string[], stats?: { bestScore?: number } }>(userDocRef);
 
 
