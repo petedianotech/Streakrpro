@@ -78,11 +78,6 @@ export default function Home() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [totalResponseTime, setTotalResponseTime] = useState(0);
 
-  const handleGuestSignIn = () => {
-    initiateAnonymousSignIn(auth);
-  };
-  
-
   const getDifficultySettings = useCallback(() => {
     switch (difficulty) {
         case 'easy':
@@ -188,16 +183,15 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
 
                 transaction.set(leaderboardRef, leaderboardData, { merge: true });
 
-                const overallBestScore = Math.max(
-                    leaderboardDoc.exists() ? (leaderboardDoc.data().totalBestScore || 0) : 0,
-                    totalBestScore
-                );
+                const userStatsDoc = await transaction.get(userRef);
+                const userBestScore = userStatsDoc.exists() ? userStatsDoc.data()?.stats?.bestScore || 0 : 0;
+                const userBestStreak = userStatsDoc.exists() ? userStatsDoc.data()?.stats?.bestStreak || 0 : 0;
 
                 // Also update the bestScore in the user's profile stats for consistency
                 transaction.set(userRef, {
                     stats: {
-                        bestScore: overallBestScore,
-                        bestStreak: newBestStreak
+                        bestScore: Math.max(userBestScore, score),
+                        bestStreak: Math.max(userBestStreak, newBestStreak)
                     }
                 }, { merge: true });
 
@@ -502,7 +496,7 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
     }
     
     if (!user) {
-      return <AuthScreen onGuestSignIn={handleGuestSignIn} />;
+      return <AuthScreen auth={auth} />;
     }
 
     const challengeCompleted = !!(todayChallenge && userData?.dailyChallengeCompletions?.includes(todayChallenge.id));

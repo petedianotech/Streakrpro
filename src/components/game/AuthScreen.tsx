@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Flame } from "lucide-react";
 import Link from "next/link";
-import { initiateAnonymousSignIn, useAuth } from "@/firebase";
+import { initiateAnonymousSignIn } from "@/firebase";
+import { Auth } from "firebase/auth";
 
 const GoogleIcon = () => (
     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
@@ -14,10 +15,13 @@ const GoogleIcon = () => (
 );
 
 type AuthScreenProps = {
-    onGuestSignIn: () => void;
+    auth: Auth;
 };
 
-export function AuthScreen({ onGuestSignIn }: AuthScreenProps) {
+export function AuthScreen({ auth }: AuthScreenProps) {
+    const handleGuestSignIn = () => {
+        initiateAnonymousSignIn(auth);
+    };
 
     return (
         <Card className="text-center animate-in fade-in zoom-in-95 duration-500 w-full max-w-sm">
@@ -45,7 +49,7 @@ export function AuthScreen({ onGuestSignIn }: AuthScreenProps) {
                     <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card px-2 text-sm text-muted-foreground">OR</span>
                 </div>
                 
-                <Button onClick={onGuestSignIn} variant="outline" className="w-full">
+                <Button onClick={handleGuestSignIn} variant="outline" className="w-full">
                     Play as a Guest
                 </Button>
 
