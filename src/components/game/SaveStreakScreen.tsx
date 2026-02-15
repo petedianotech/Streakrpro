@@ -27,7 +27,8 @@ export function SaveStreakScreen({ streak, onSave, onEnd }: SaveStreakScreenProp
           </div>
           <AlertDialogTitle className="text-2xl font-headline">Save Your Streak?</AlertDialogTitle>
           <AlertDialogDescription>
-            You have a streak of {streak}. You can save it and continue playing.
+            You have a streak of {streak}. An ad will open in the background to
+            save your streak and continue playing.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-1 gap-2">
