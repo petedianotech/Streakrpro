@@ -5,10 +5,10 @@ import Script from "next/script";
 export function AdScripts() {
     return (
         <>
-            {/* Adsterra Popunder Script */}
+            {/* Adsterra Social Bar Script */}
             <Script
-                id="adsterra-popunder"
-                src="https://pl28718482.effectivegatecpm.com/ec/cf/0e/eccf0e48270d001e737be98cdeddc68f.js"
+                id="adsterra-social-bar"
+                src="https://pl28718540.effectivegatecpm.com/c7/ca/99/c7ca9937192574a17f0b24d4c96e0220.js"
                 strategy="afterInteractive"
             />
         </>
