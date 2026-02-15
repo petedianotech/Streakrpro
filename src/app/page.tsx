@@ -457,25 +457,12 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
     }
   };
   
-  const handleShowRewardedAd = () => {
-    if (typeof window !== 'undefined' && (window as any).Adsgram) {
-      (window as any).Adsgram.showRewardedVideo(
-        // On success
-        () => {
-          toast({ title: 'Streak Saved!', description: 'You can continue playing.' });
-          generateQuestion();
-          setGameState('playing');
-        },
-        // On failure
-        () => {
-          toast({ variant: 'destructive', title: 'Ad Failed', description: 'Could not show ad. Ending game.' });
-          handleEndGame();
-        }
-      );
-    } else {
-      toast({ variant: 'destructive', title: 'Error', description: 'Ad provider not found. Could not save streak.' });
-      handleEndGame();
-    }
+  const handleSaveStreak = () => {
+    // The Adsterra popunder script is global and will trigger on user interaction (the button click).
+    // There is no success/failure callback with a popunder, so we just proceed with saving the streak.
+    toast({ title: 'Streak Saved!', description: 'You can continue playing.' });
+    generateQuestion();
+    setGameState('playing');
   };
   
   const handleUseTimePowerUp = () => {
@@ -522,7 +509,7 @@ const handleSaveScoreToLeaderboard = useCallback(async () => {
         return (
           <SaveStreakScreen
             streak={streak}
-            onSave={handleShowRewardedAd}
+            onSave={handleSaveStreak}
             onEnd={handleEndGame}
           />
         );

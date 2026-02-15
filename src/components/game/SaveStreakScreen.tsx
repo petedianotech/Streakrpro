@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Flame, Video } from "lucide-react";
+import { Flame, ShieldCheck } from "lucide-react";
 
 type SaveStreakScreenProps = {
   streak: number;
@@ -27,13 +27,13 @@ export function SaveStreakScreen({ streak, onSave, onEnd }: SaveStreakScreenProp
           </div>
           <AlertDialogTitle className="text-2xl font-headline">Save Your Streak?</AlertDialogTitle>
           <AlertDialogDescription>
-            You have a streak of {streak}. Watch an ad to save it and continue playing.
+            You have a streak of {streak}. You can save it and continue playing.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-1 gap-2">
           <AlertDialogAction onClick={onSave} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Video className="mr-2 h-4 w-4" />
-            Watch Ad to Continue
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Save Streak & Continue
           </AlertDialogAction>
           <AlertDialogCancel onClick={onEnd} className="w-full">End Game</AlertDialogCancel>
         </AlertDialogFooter>
